@@ -81,6 +81,14 @@ export const ETIQUETA_TIPO: Record<TipoReclamo, string> = {
   RUIDOS_MOLESTOS: 'Ruidos molestos',
 }
 
+export const COLOR_TIPO: Record<TipoReclamo, string> = {
+  CABLEADO: '#b8431f',
+  BACHEO: '#c47b12',
+  ALUMBRADO: '#c9a227',
+  ARBOLADO: '#1f7a4d',
+  RUIDOS_MOLESTOS: '#3d3480',
+}
+
 /**
  * Transiciones de PUT /reclamos/{id}/estado.
  * ASIGNADO solo sale de asignar una cuadrilla; DUPLICADO lo marca SvcIA al validar.

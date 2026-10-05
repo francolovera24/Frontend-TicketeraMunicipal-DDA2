@@ -11,9 +11,11 @@ import {
   type Cuadrilla,
   type EstadoReclamo,
   type Reclamo,
+  type TipoReclamo,
 } from '../api.ts'
 import { BARRIOS, destinosManuales, ETIQUETA_ESTADO, ETIQUETA_TIPO, formatearFecha, recortar } from '../catalogo.ts'
 import { Aviso, Campo, Copiar, PastillaEstado } from '../ui.tsx'
+import { MapaReclamos } from './MapaReclamos.tsx'
 
 export function PanelReclamos({
   token,
@@ -29,6 +31,7 @@ export function PanelReclamos({
   onVerSoap: (reclamoId: string) => void
 }) {
   const [barrio, setBarrio] = useState('')
+  const [tipo, setTipo] = useState('')
   const [texto, setTexto] = useState('')
   const [estado, setEstado] = useState('')
   const [enVivo, setEnVivo] = useState(true)
@@ -77,6 +80,7 @@ export function PanelReclamos({
   }, [enVivo, cargar])
 
   const visibles = reclamos.filter((reclamo) => {
+    if (tipo && reclamo.tipo !== tipo) return false
     if (estado && reclamo.estado !== estado) return false
     if (!texto.trim()) return true
     const busqueda = texto.trim().toLowerCase()
@@ -88,9 +92,26 @@ export function PanelReclamos({
   })
 
   const seleccionado = reclamos.find((item) => item.id === seleccionadoId) ?? null
+  const enMapa = visibles.filter(
+    (reclamo) =>
+      reclamo.estado !== 'DUPLICADO' && reclamo.ubicacion.lat != null && reclamo.ubicacion.lon != null,
+  )
 
   return (
-    <div className="corte">
+    <div className="columna">
+      <MapaReclamos
+        reclamos={enMapa}
+        seleccionadoId={seleccionadoId}
+        onElegir={setSeleccionadoId}
+        tipo={tipo}
+        onTipo={setTipo}
+        barrio={barrio}
+        onBarrio={(valor) => {
+          conocidos.current = null
+          setBarrio(valor)
+        }}
+      />
+      <div className="corte">
       <section className="tarjeta">
         <div className="encabezado-panel">
           <h2>Reclamos</h2>
@@ -100,8 +121,8 @@ export function PanelReclamos({
           </label>
         </div>
         <p className="bajada">
-          GET /reclamos es solo ADMIN. El filtro de barrio lo aplica el backend; estado y texto se filtran acá. Con
-          “en vivo” se actualiza cada 4 segundos para ver el reclamo apenas lo carga un vecino.
+          GET /reclamos es solo ADMIN. El barrio lo filtra el backend; el tipo, el estado y el texto se filtran acá.
+          Con “en vivo” se actualiza cada 4 segundos para ver el reclamo apenas lo carga un vecino.
         </p>
         <div className="fila-2">
           <Campo etiqueta="Barrio">
@@ -116,6 +137,16 @@ export function PanelReclamos({
               {BARRIOS.map((nombre) => (
                 <option key={nombre} value={nombre}>
                   {nombre}
+                </option>
+              ))}
+            </select>
+          </Campo>
+          <Campo etiqueta="Problema">
+            <select value={tipo} onChange={(evento) => setTipo(evento.target.value as TipoReclamo | '')}>
+              <option value="">Todos</option>
+              {Object.entries(ETIQUETA_TIPO).map(([id, etiqueta]) => (
+                <option key={id} value={id}>
+                  {etiqueta}
                 </option>
               ))}
             </select>
@@ -186,6 +217,7 @@ export function PanelReclamos({
           </>
         )}
       </section>
+      </div>
     </div>
   )
 }

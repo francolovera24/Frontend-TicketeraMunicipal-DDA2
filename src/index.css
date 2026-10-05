@@ -273,6 +273,54 @@ textarea { resize: vertical; }
 .lista-simple { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .lista-scroll { max-height: 68vh; overflow: auto; }
 
+.mapa-panel { display: flex; flex-direction: column; gap: 10px; }
+
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--suave);
+  font-size: 0.88rem;
+}
+
+.leyenda li { display: flex; }
+
+.leyenda button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 999px;
+  padding: 2px 8px 2px 2px;
+  cursor: pointer;
+}
+
+.leyenda button.activo {
+  border-color: var(--acento);
+  background: var(--papel);
+}
+
+.punto-leyenda {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--blanco);
+  box-shadow: 0 0 0 1px var(--linea);
+}
+
+.mapa-lienzo {
+  height: 420px;
+  border-radius: 10px;
+  border: 1px solid var(--linea);
+  z-index: 0;
+}
+
+.leaflet-container { font: inherit; }
+
 .item-lista, .item-estatico {
   width: 100%;
   text-align: left;
@@ -334,5 +382,6 @@ details summary { cursor: pointer; margin: 8px 0; }
 @media (max-width: 860px) {
   .grilla-2, .corte, .fila-2, .datos { grid-template-columns: 1fr; }
   .lista-scroll { max-height: none; }
+  .mapa-lienzo { height: 300px; }
   main { width: min(1180px, calc(100% - 20px)); }
 }
