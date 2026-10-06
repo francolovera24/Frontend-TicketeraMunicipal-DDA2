@@ -114,10 +114,10 @@ export function PanelResumen({
                     <tr key={item.reclamoId}>
                       <td>{item.score}</td>
                       <td>
-                        <strong>{ETIQUETA_TIPO[item.tipo]}</strong>
+                        <strong>{item.titulo}</strong>
                         {item.urgente ? ' · urgente' : ''}
                         <br />
-                        {item.descripcion}
+                        {ETIQUETA_TIPO[item.tipo]} · {item.descripcion}
                         <br />
                         <span className="meta">{item.direccion}</span>
                       </td>

@@ -90,7 +90,7 @@ export function PanelCiudadano({
               {reclamos.map((reclamo) => (
                 <li key={reclamo.id} className="item-estatico">
                   <PastillaEstado estado={reclamo.estado} />
-                  <span className="relato corto">{reclamo.descripcion}</span>
+                  <span className="relato corto">{reclamo.titulo}</span>
                   <small>
                     {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · {formatearFecha(reclamo.fechaCreacion)}
                   </small>

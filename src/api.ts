@@ -14,6 +14,7 @@ export type EstadoReclamo =
 export type Reclamo = {
   id: string
   tipo: TipoReclamo
+  titulo: string
   descripcion: string
   estado: EstadoReclamo
   urgente: boolean
@@ -55,6 +56,7 @@ export type Cuadrilla = {
 export type ItemRanking = {
   reclamoId: string
   tipo: TipoReclamo
+  titulo: string
   descripcion: string
   direccion: string
   estado: EstadoReclamo
@@ -220,6 +222,7 @@ export function historialCiudadano(token: string, id: string): Promise<Reclamo[]
 export type AltaReclamo = {
   ciudadanoId: string
   tipo: TipoReclamo
+  titulo: string
   descripcion: string
   direccion: string
   lat?: number
@@ -231,6 +234,7 @@ export function crearReclamo(alta: AltaReclamo, correlationId: string, token?: s
   const body: Record<string, unknown> = {
     ciudadanoId: alta.ciudadanoId,
     tipo: alta.tipo,
+    titulo: alta.titulo,
     descripcion: alta.descripcion,
     direccion: alta.direccion,
   }

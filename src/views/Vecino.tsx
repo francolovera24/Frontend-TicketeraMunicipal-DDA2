@@ -62,6 +62,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
   const [cargandoFicha, setCargandoFicha] = useState(false)
 
   const [tipo, setTipo] = useState<TipoReclamo>('CABLEADO')
+  const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [direccion, setDireccion] = useState('')
   const [barrio, setBarrio] = useState('')
@@ -221,6 +222,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
         {
           ciudadanoId: ciudadano.id,
           tipo,
+          titulo: titulo.trim(),
           descripcion: descripcion.trim(),
           direccion: direccion.trim(),
           lat: latitud,
@@ -235,6 +237,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
       setVigilarId(reclamo.id)
       if (!sesion) recordarReclamo(reclamo.id)
       setHistorial((actual) => [reclamo, ...actual.filter((item) => item.id !== reclamo.id)])
+      setTitulo('')
       setDescripcion('')
     } catch (fallo) {
       setError(fallo instanceof Error && !(fallo instanceof ApiError) && !(fallo instanceof TypeError)
@@ -308,6 +311,15 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
             ))}
           </select>
         </Campo>
+        <Campo etiqueta="Título o asunto" hint="Un resumen corto del problema.">
+          <input
+            required
+            maxLength={150}
+            value={titulo}
+            onChange={(evento) => setTitulo(evento.target.value)}
+            placeholder="Cable colgando sobre la vereda"
+          />
+        </Campo>
         <Campo etiqueta="Qué está pasando">
           <textarea
             required
@@ -315,7 +327,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
             rows={4}
             value={descripcion}
             onChange={(evento) => setDescripcion(evento.target.value)}
-            placeholder="Cable pelado colgando sobre la vereda"
+            placeholder="Cable pelado colgando desde el poste, a metros de la esquina"
           />
         </Campo>
         <Campo etiqueta="Dirección">
@@ -391,7 +403,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
                 <li key={reclamo.id}>
                   <button type="button" className="item-lista" onClick={() => setSeguimiento(reclamo)}>
                     <PastillaEstado estado={reclamo.estado} />
-                    <span>{reclamo.descripcion}</span>
+                    <span>{reclamo.titulo}</span>
                     <small>
                       {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · {formatearFecha(reclamo.fechaCreacion)}
                     </small>
@@ -433,6 +445,7 @@ function FichaReclamo({ reclamo }: { reclamo: Reclamo }) {
         {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
         <span className="meta">Score {reclamo.scoreCriticidad}</span>
       </div>
+      <p className="relato-titulo">{reclamo.titulo}</p>
       <p className="relato">{reclamo.descripcion}</p>
       <p>
         {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.ubicacion.direccion} · {reclamo.barrio}
