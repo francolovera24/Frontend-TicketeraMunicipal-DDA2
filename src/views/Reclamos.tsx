@@ -13,9 +13,27 @@ import {
   type Reclamo,
   type TipoReclamo,
 } from '../api.ts'
-import { BARRIOS, destinosManuales, ETIQUETA_ESTADO, ETIQUETA_TIPO, formatearFecha, recortar } from '../catalogo.ts'
+import {
+  BARRIOS,
+  COLOR_TIPO,
+  destinosManuales,
+  ETIQUETA_ESTADO,
+  ETIQUETA_TIPO,
+  formatearFecha,
+  recortar,
+} from '../catalogo.ts'
 import { Aviso, Campo, Copiar, PastillaEstado } from '../ui.tsx'
 import { MapaReclamos } from './MapaReclamos.tsx'
+
+const COLUMNAS_KANBAN: EstadoReclamo[] = [
+  'NUEVO',
+  'EN_ANALISIS',
+  'ASIGNADO',
+  'EN_PROCESO',
+  'RESUELTO',
+  'RECHAZADO',
+  'DUPLICADO',
+]
 
 export function PanelReclamos({
   token,
@@ -85,6 +103,7 @@ export function PanelReclamos({
     if (!texto.trim()) return true
     const busqueda = texto.trim().toLowerCase()
     return (
+      reclamo.titulo.toLowerCase().includes(busqueda) ||
       reclamo.descripcion.toLowerCase().includes(busqueda) ||
       reclamo.ubicacion.direccion.toLowerCase().includes(busqueda) ||
       reclamo.id.toLowerCase().includes(busqueda)
@@ -96,6 +115,11 @@ export function PanelReclamos({
     (reclamo) =>
       reclamo.estado !== 'DUPLICADO' && reclamo.ubicacion.lat != null && reclamo.ubicacion.lon != null,
   )
+
+  const porColumna = new Map<EstadoReclamo, Reclamo[]>(COLUMNAS_KANBAN.map((est) => [est, []]))
+  for (const reclamo of visibles) {
+    porColumna.get(reclamo.estado)?.push(reclamo)
+  }
 
   return (
     <div className="columna">
@@ -111,7 +135,7 @@ export function PanelReclamos({
           setBarrio(valor)
         }}
       />
-      <div className="corte">
+
       <section className="tarjeta">
         <div className="encabezado-panel">
           <h2>Reclamos</h2>
@@ -169,31 +193,51 @@ export function PanelReclamos({
           {cargando ? 'Actualizando…' : 'Actualizar'}
         </button>
         {error ? <Aviso tono="error">{error}</Aviso> : null}
+      </section>
+
+      <section className="tarjeta tarjeta-tablero">
+        <h2>Tablero</h2>
+        <p className="bajada">
+          Un reclamo pasa de columna cambiando su estado desde el detalle, abajo. “Asignado” sale de asignar una
+          cuadrilla, no se elige a mano.
+        </p>
         {visibles.length === 0 ? (
           <p className="bajada">No hay reclamos con esos filtros.</p>
         ) : (
-          <ul className="lista-simple lista-scroll">
-            {visibles.map((reclamo) => (
-              <li key={reclamo.id}>
-                <button
-                  type="button"
-                  className={`item-lista ${reclamo.id === seleccionadoId ? 'activo' : ''} ${recien.has(reclamo.id) ? 'recien' : ''}`}
-                  onClick={() => setSeleccionadoId(reclamo.id)}
-                >
-                  <span className="fila-meta">
-                    <PastillaEstado estado={reclamo.estado} />
-                    {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
-                    {recien.has(reclamo.id) ? <span className="pastilla nuevo">Recién llegado</span> : null}
-                  </span>
-                  <span className="relato corto">{reclamo.descripcion}</span>
-                  <small>
-                    {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.ubicacion.direccion} · {reclamo.barrio} · score{' '}
-                    {reclamo.scoreCriticidad} · {formatearFecha(reclamo.fechaCreacion)}
-                  </small>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="tablero-kanban">
+            {COLUMNAS_KANBAN.map((columnaEstado) => {
+              const items = porColumna.get(columnaEstado) ?? []
+              return (
+                <div className="columna-kanban" key={columnaEstado}>
+                  <div className={`columna-kanban__cabecera estado-${columnaEstado}`}>
+                    <span>{ETIQUETA_ESTADO[columnaEstado]}</span>
+                    <span className="columna-kanban__contador">{items.length}</span>
+                  </div>
+                  <div className="columna-kanban__cuerpo">
+                    {items.map((reclamo) => (
+                      <button
+                        key={reclamo.id}
+                        type="button"
+                        style={{ borderLeftColor: COLOR_TIPO[reclamo.tipo] }}
+                        className={`tarjeta-kanban ${reclamo.id === seleccionadoId ? 'activo' : ''} ${recien.has(reclamo.id) ? 'recien' : ''}`}
+                        onClick={() => setSeleccionadoId(reclamo.id)}
+                      >
+                        <span className="fila-meta">
+                          {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
+                          {recien.has(reclamo.id) ? <span className="pastilla nuevo">Recién llegado</span> : null}
+                        </span>
+                        <span className="tarjeta-kanban__titulo">{reclamo.titulo}</span>
+                        <small>
+                          {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · score {reclamo.scoreCriticidad}
+                        </small>
+                        <small>{formatearFecha(reclamo.fechaCreacion)}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
       </section>
 
@@ -213,11 +257,10 @@ export function PanelReclamos({
         ) : (
           <>
             <h2>Detalle</h2>
-            <p className="bajada">Elegí un reclamo para ver el texto del vecino, su contacto y las acciones de gestión.</p>
+            <p className="bajada">Elegí un reclamo en el tablero para ver el texto del vecino, su contacto y las acciones de gestión.</p>
           </>
         )}
       </section>
-      </div>
     </div>
   )
 }
@@ -330,7 +373,7 @@ function DetalleReclamo({
 
   return (
     <>
-      <h2>Lo que ingresó el vecino</h2>
+      <h2>{reclamo.titulo}</h2>
       {vecino ? (
         <p className="vecino-nombre">
           {vecino.nombre}

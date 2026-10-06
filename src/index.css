@@ -212,11 +212,17 @@ textarea { resize: vertical; }
 .aviso-info { background: #e7f1f4; color: var(--municipal); }
 .banner { margin: 12px 24px 0; }
 
+.relato-titulo {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin: 8px 0 0;
+}
+
 .relato {
   font-family: Georgia, "Iowan Old Style", serif;
   font-size: 1.12rem;
   line-height: 1.4;
-  margin: 8px 0;
+  margin: 4px 0 8px;
 }
 .relato.corto {
   display: -webkit-box;
@@ -320,6 +326,74 @@ textarea { resize: vertical; }
 }
 
 .leaflet-container { font: inherit; }
+
+.tarjeta-tablero { overflow: hidden; }
+
+.tablero-kanban {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-top: 4px;
+}
+
+.columna-kanban {
+  flex: 0 0 248px;
+  display: flex;
+  flex-direction: column;
+  background: var(--papel);
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  max-height: 64vh;
+  overflow: hidden;
+}
+
+.columna-kanban__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  font-weight: 650;
+  font-size: 0.86rem;
+  border-bottom: 1px solid var(--linea);
+}
+
+.columna-kanban__contador {
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.columna-kanban__cuerpo {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.tarjeta-kanban {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 10px 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--linea);
+  border-left: 4px solid var(--linea);
+  background: white;
+  cursor: pointer;
+  box-shadow: var(--sombra);
+}
+.tarjeta-kanban__titulo { font-weight: 650; font-size: 0.95rem; }
+.tarjeta-kanban small { color: var(--suave); }
+.tarjeta-kanban.activo { border-color: var(--acento); box-shadow: inset 3px 0 0 var(--acento); }
+.tarjeta-kanban.recien { background: #fff4ee; }
+.tarjeta-kanban:hover { border-color: var(--acento); }
 
 .item-lista, .item-estatico {
   width: 100%;
