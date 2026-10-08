@@ -10,10 +10,10 @@ type Tab = 'reclamos' | 'cuadrillas' | 'ia' | 'ciudadano' | 'soap'
 
 const TABS: { id: Tab; etiqueta: string }[] = [
   { id: 'reclamos', etiqueta: 'Reclamos' },
-  { id: 'cuadrillas', etiqueta: 'Cuadrillas' },
-  { id: 'ia', etiqueta: 'Resumen IA' },
-  { id: 'ciudadano', etiqueta: 'Ciudadano' },
-  { id: 'soap', etiqueta: 'SOAP' },
+  { id: 'cuadrillas', etiqueta: 'Equipos' },
+  { id: 'ia', etiqueta: 'Resumen' },
+  { id: 'ciudadano', etiqueta: 'Vecinos' },
+  { id: 'soap', etiqueta: 'Estado' },
 ]
 
 export function VistaMunicipal({ sesion, onExpirar }: { sesion: Sesion; onExpirar: () => void }) {
@@ -56,12 +56,42 @@ export function VistaMunicipal({ sesion, onExpirar }: { sesion: Sesion; onExpira
           }}
         />
       ) : null}
-      {tab === 'cuadrillas' ? <PanelCuadrillas token={sesion.token} onExpirar={onExpirar} /> : null}
+      {tab === 'cuadrillas' ? (
+        <PanelCuadrillas
+          token={sesion.token}
+          onExpirar={onExpirar}
+          onVerZona={(barrio) => {
+            setBarrioIa(barrio)
+            setTab('ia')
+          }}
+          onVerCiudadano={(id) => {
+            setCiudadanoId(id)
+            setTab('ciudadano')
+          }}
+          onVerSoap={(id) => {
+            setReclamoSoapId(id)
+            setTab('soap')
+          }}
+        />
+      ) : null}
       {tab === 'ia' ? (
         <PanelResumen token={sesion.token} onExpirar={onExpirar} barrioInicial={barrioIa} />
       ) : null}
       {tab === 'ciudadano' ? (
-        <PanelCiudadano key={ciudadanoId || 'vacio'} token={sesion.token} onExpirar={onExpirar} idInicial={ciudadanoId} />
+        <PanelCiudadano
+          key={ciudadanoId || 'vacio'}
+          token={sesion.token}
+          onExpirar={onExpirar}
+          idInicial={ciudadanoId}
+          onVerZona={(barrio) => {
+            setBarrioIa(barrio)
+            setTab('ia')
+          }}
+          onVerSoap={(id) => {
+            setReclamoSoapId(id)
+            setTab('soap')
+          }}
+        />
       ) : null}
       {tab === 'soap' ? <PanelSoap key={reclamoSoapId || 'vacio'} idInicial={reclamoSoapId} /> : null}
     </div>

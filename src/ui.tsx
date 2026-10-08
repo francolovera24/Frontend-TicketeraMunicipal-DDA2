@@ -28,8 +28,8 @@ export function Campo({
   )
 }
 
-export function PastillaEstado({ estado }: { estado: EstadoReclamo }) {
-  return <span className={`pastilla estado-${estado}`}>{ETIQUETA_ESTADO[estado]}</span>
+export function PastillaEstado({ estado, texto }: { estado: EstadoReclamo; texto?: string }) {
+  return <span className={`pastilla estado-${estado}`}>{texto ?? ETIQUETA_ESTADO[estado]}</span>
 }
 
 export function Copiar({ valor }: { valor: string }) {

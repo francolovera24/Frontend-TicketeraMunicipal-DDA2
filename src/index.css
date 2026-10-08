@@ -151,6 +151,13 @@ h3 { font-size: 1rem; }
 
 .bajada { margin: 0; color: var(--suave); }
 .meta { margin: 0; color: var(--suave); font-size: 0.88rem; }
+.seguimiento-numero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+.seguimiento-numero span { word-break: break-all; }
 
 .grilla-2, .corte {
   display: grid;
@@ -200,6 +207,11 @@ textarea { resize: vertical; }
   color: var(--municipal);
   padding: 0 4px;
   text-decoration: underline;
+}
+.enlace-reclamo {
+  white-space: normal;
+  text-align: left;
+  max-width: 28rem;
 }
 
 .aviso {
@@ -270,6 +282,8 @@ textarea { resize: vertical; }
 .estado-EN_PROCESO { background: #f8ecd4; color: #8a5a00; }
 .estado-RESUELTO { background: #e5f6ee; color: #1f7a4d; }
 .estado-RECHAZADO { background: #fde8eb; color: #9b2335; }
+.equipo-libre { background: #e5f6ee; color: #1f7a4d; }
+.equipo-ocupada { background: #f8ecd4; color: #8a5a00; }
 .estado-DUPLICADO { background: #f3e4f1; color: #6d2f68; }
 .urgente { background: #b8431f; color: white; }
 .nuevo { background: #b8431f; color: white; }
@@ -411,6 +425,102 @@ textarea { resize: vertical; }
 .item-lista.activo { border-color: var(--acento); box-shadow: inset 3px 0 0 var(--acento); }
 .item-lista.recien { background: #fff4ee; }
 .item-lista small { color: var(--suave); }
+.item-lista-titulo {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.detalle-reclamo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 8px 28px;
+  align-items: start;
+}
+
+.detalle-cuerpo { display: flex; flex-direction: column; gap: 8px; }
+
+.detalle-estados {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lista-abrible {
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--papel);
+  padding: 0 10px 10px;
+}
+
+.lista-abrible summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 2px;
+  font-weight: 650;
+}
+
+.lista-abrible summary::-webkit-details-marker { display: none; }
+
+.lista-abrible summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-right: 2px solid var(--suave);
+  border-bottom: 2px solid var(--suave);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.lista-abrible[open] summary::after {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
+
+.lista-estados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lista-estados li {
+  border: 1px solid var(--linea);
+  border-radius: 10px;
+  background: white;
+}
+
+.lista-estados button,
+.lista-estados span {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.lista-estados small { color: var(--suave); font-size: 0.78rem; }
+
+.lista-estados li.actual {
+  border-color: var(--acento);
+  box-shadow: inset 3px 0 0 var(--acento);
+}
+
+.lista-estados li.posible button { cursor: pointer; }
+.lista-estados li.posible button:hover { background: var(--papel); }
+.lista-estados li.otro { opacity: 0.45; }
 
 .ficha { display: flex; flex-direction: column; gap: 6px; }
 
@@ -454,7 +564,7 @@ details summary { cursor: pointer; margin: 8px 0; }
 }
 
 @media (max-width: 860px) {
-  .grilla-2, .corte, .fila-2, .datos { grid-template-columns: 1fr; }
+  .grilla-2, .corte, .fila-2, .datos, .detalle-reclamo { grid-template-columns: 1fr; }
   .lista-scroll { max-height: none; }
   .mapa-lienzo { height: 300px; }
   main { width: min(1180px, calc(100% - 20px)); }

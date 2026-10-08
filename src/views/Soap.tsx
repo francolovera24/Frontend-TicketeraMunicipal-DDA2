@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { consultarEstadoSoap, textoError } from '../api.ts'
-import { Aviso, Campo } from '../ui.tsx'
+import { consultarEstadoSoap, textoError, type EstadoReclamo, type TipoReclamo } from '../api.ts'
+import { ETIQUETA_ESTADO, ETIQUETA_TIPO, formatearFecha } from '../catalogo.ts'
+import { Aviso, Campo, PastillaEstado } from '../ui.tsx'
 
 type EstadoSoap = {
   id: string
@@ -48,7 +49,6 @@ function leerEstado(xml: string): { fault: string | null; estado: EstadoSoap | n
 export function PanelSoap({ idInicial = '' }: { idInicial?: string }) {
   const [id, setId] = useState(idInicial)
   const [xml, setXml] = useState<string | null>(null)
-  const [status, setStatus] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
 
@@ -58,7 +58,6 @@ export function PanelSoap({ idInicial = '' }: { idInicial?: string }) {
     setXml(null)
     try {
       const respuesta = await consultarEstadoSoap(reclamoId)
-      setStatus(respuesta.status)
       setXml(respuesta.xml)
     } catch (fallo) {
       setError(textoError(fallo))
@@ -81,26 +80,20 @@ export function PanelSoap({ idInicial = '' }: { idInicial?: string }) {
 
   return (
     <section className="tarjeta formulario">
-      <h2>SOAP · consultar estado</h2>
-      <p className="bajada">
-        POST /ws, operación consultarEstadoReclamo. Es el servicio para integraciones externas (no hace falta token).
-        El WSDL está en{' '}
-        <a href="http://localhost:8080/ws/reclamos.wsdl" target="_blank" rel="noreferrer">
-          /ws/reclamos.wsdl
-        </a>
-        . Un id inexistente o mal formado devuelve un Fault de cliente.
-      </p>
+      <h2>Estado</h2>
+      <p className="bajada">Pegá el número de seguimiento para ver en qué está el reclamo.</p>
       <form onSubmit={(evento) => void consultar(evento)}>
-        <Campo etiqueta="Id del reclamo">
+        <Campo etiqueta="Número de seguimiento">
           <input
             required
             spellCheck={false}
             value={id}
             onChange={(evento) => setId(evento.target.value)}
+            placeholder="Pegá el número"
           />
         </Campo>
         <button className="btn btn-primario" type="submit" disabled={ocupado}>
-          {ocupado ? 'Consultando…' : 'Consultar por SOAP'}
+          {ocupado ? 'Consultando…' : 'Ver estado'}
         </button>
       </form>
       {error ? <Aviso tono="error">{error}</Aviso> : null}
@@ -108,16 +101,22 @@ export function PanelSoap({ idInicial = '' }: { idInicial?: string }) {
       {leido?.estado ? (
         <dl className="datos">
           <div>
-            <dt>HTTP</dt>
-            <dd>{status}</dd>
-          </div>
-          <div>
             <dt>Estado</dt>
-            <dd>{leido.estado.estado}</dd>
+            <dd>
+              {leido.estado.estado in ETIQUETA_ESTADO ? (
+                <PastillaEstado estado={leido.estado.estado as EstadoReclamo} />
+              ) : (
+                leido.estado.estado
+              )}
+            </dd>
           </div>
           <div>
-            <dt>Tipo</dt>
-            <dd>{leido.estado.tipo}</dd>
+            <dt>Problema</dt>
+            <dd>
+              {leido.estado.tipo in ETIQUETA_TIPO
+                ? ETIQUETA_TIPO[leido.estado.tipo as TipoReclamo]
+                : leido.estado.tipo}
+            </dd>
           </div>
           <div>
             <dt>Barrio</dt>
@@ -125,31 +124,24 @@ export function PanelSoap({ idInicial = '' }: { idInicial?: string }) {
           </div>
           <div>
             <dt>Urgente</dt>
-            <dd>{leido.estado.urgente}</dd>
+            <dd>{leido.estado.urgente === 'true' ? 'Sí' : 'No'}</dd>
           </div>
           <div>
-            <dt>Cuadrilla asignada</dt>
-            <dd>{leido.estado.cuadrillaAsignada}</dd>
+            <dt>Equipo</dt>
+            <dd>{leido.estado.cuadrillaAsignada ? 'Asignado' : 'Sin equipo'}</dd>
           </div>
           <div>
-            <dt>Original</dt>
-            <dd>{leido.estado.reclamoOriginalId || '—'}</dd>
-          </div>
-          <div>
-            <dt>Alta</dt>
-            <dd>{leido.estado.fechaCreacion}</dd>
+            <dt>Ingreso</dt>
+            <dd>{formatearFecha(leido.estado.fechaCreacion)}</dd>
           </div>
           <div>
             <dt>Actualización</dt>
-            <dd>{leido.estado.fechaActualizacion}</dd>
+            <dd>{formatearFecha(leido.estado.fechaActualizacion)}</dd>
           </div>
         </dl>
       ) : null}
-      {xml ? (
-        <details>
-          <summary>XML de respuesta</summary>
-          <pre className="crudo">{xml}</pre>
-        </details>
+      {leido?.estado?.reclamoOriginalId ? (
+        <p className="bajada">Ya había un reclamo igual. Se sigue ese.</p>
       ) : null}
     </section>
   )

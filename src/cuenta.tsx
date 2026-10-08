@@ -55,7 +55,7 @@ export function FormularioCuenta({
           Registrarme
         </button>
       </div>
-      <Campo etiqueta="Email" hint="Si termina en @admin.com el backend asigna rol ADMIN. Cualquier otro queda VECINO.">
+      <Campo etiqueta="Email" hint="Usá el mail con el que te registraste.">
         <input
           type="email"
           required
@@ -65,7 +65,7 @@ export function FormularioCuenta({
           placeholder="vecino@gmail.com"
         />
       </Campo>
-      <Campo etiqueta="Contraseña" hint="Entre 8 y 72 caracteres.">
+      <Campo etiqueta="Contraseña" hint="Mínimo 8 caracteres.">
         <input
           type="password"
           required
@@ -78,7 +78,7 @@ export function FormularioCuenta({
       </Campo>
       {error ? <Aviso tono="error">{error}</Aviso> : null}
       <button className="btn btn-primario" type="submit" disabled={ocupado}>
-        {ocupado ? 'Esperando al backend…' : modo === 'login' ? 'Entrar' : 'Registrarme y entrar'}
+        {ocupado ? 'Entrando…' : modo === 'login' ? 'Entrar' : 'Registrarme y entrar'}
       </button>
     </form>
   )

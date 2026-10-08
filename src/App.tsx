@@ -49,9 +49,6 @@ export default function App() {
           <p className="bajada marca-sub">Reclamos de infraestructura · CABA</p>
         </div>
         <div className="sesion">
-          <span className={`punto punto-${backend}`}>
-            {backend === 'ok' ? 'Backend en línea' : backend === 'caido' ? 'Backend sin respuesta' : 'Buscando backend…'}
-          </span>
           {sesion ? (
             <>
               <span className="quien">
@@ -68,7 +65,7 @@ export default function App() {
 
       {backend === 'caido' ? (
         <p className="aviso aviso-error banner" role="alert">
-          No responde el backend en el puerto 8080. Desde la carpeta ticketera: docker compose up --build
+          Ahora no podemos cargar los reclamos. Probá de nuevo en unos minutos.
         </p>
       ) : null}
 
@@ -77,7 +74,7 @@ export default function App() {
           <div className="angosta portada">
             <FormularioCuenta
               onListo={entrar}
-              detalle="Un email @admin.com entra al panel municipal. Cualquier otro abre la vista del vecino."
+              detalle="Entrá para cargar un reclamo y seguir cómo avanza."
             />
           </div>
         ) : null}
@@ -88,13 +85,7 @@ export default function App() {
       </main>
 
       <footer className="pie">
-        <a href="http://localhost:8080/swagger-ui.html" target="_blank" rel="noreferrer">
-          Swagger
-        </a>
-        <a href="http://localhost:15672" target="_blank" rel="noreferrer">
-          RabbitMQ
-        </a>
-        <span>La mensajería no tiene pantalla: el estado del reclamo muestra si la validación y la cuadrilla corrieron.</span>
+        <span>Reclamos de la Ciudad de Buenos Aires.</span>
       </footer>
     </div>
   )

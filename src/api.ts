@@ -100,7 +100,7 @@ export class ApiError extends Error {
 export function textoError(error: unknown): string {
   if (error instanceof ApiError) return error.message
   if (error instanceof TypeError) {
-    return 'No hay conexión con el backend. Levantalo en la carpeta ticketera con docker compose up (puerto 8080).'
+    return 'No pudimos conectar. Probá de nuevo en un momento.'
   }
   return 'Ocurrió un error inesperado.'
 }

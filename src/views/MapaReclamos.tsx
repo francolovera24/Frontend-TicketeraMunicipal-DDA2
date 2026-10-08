@@ -223,8 +223,7 @@ export function MapaReclamos({
       </ul>
       <div ref={contenedor} className="mapa-lienzo" />
       <p className="bajada">
-        Al elegir un barrio se marca su límite con una línea punteada. Los duplicados no se marcan, ni los reclamos
-        sin coordenadas.
+        Al elegir un barrio se marca el límite con una línea punteada. Los reclamos repetidos no aparecen en el mapa.
       </p>
     </section>
   )

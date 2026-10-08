@@ -20,9 +20,8 @@ import {
   ETIQUETA_ESTADO,
   ETIQUETA_TIPO,
   formatearFecha,
-  recortar,
 } from '../catalogo.ts'
-import { Aviso, Campo, Copiar, PastillaEstado } from '../ui.tsx'
+import { Aviso, Campo, PastillaEstado } from '../ui.tsx'
 import { MapaReclamos } from './MapaReclamos.tsx'
 
 const COLUMNAS_KANBAN: EstadoReclamo[] = [
@@ -141,13 +140,10 @@ export function PanelReclamos({
           <h2>Reclamos</h2>
           <label className="check">
             <input type="checkbox" checked={enVivo} onChange={(evento) => setEnVivo(evento.target.checked)} />
-            En vivo
+            Se actualiza solo
           </label>
         </div>
-        <p className="bajada">
-          GET /reclamos es solo ADMIN. El barrio lo filtra el backend; el tipo, el estado y el texto se filtran acá.
-          Con “en vivo” se actualiza cada 4 segundos para ver el reclamo apenas lo carga un vecino.
-        </p>
+        <p className="bajada">Filtrá por barrio, problema o estado. Con la actualización automática ves los reclamos nuevos al toque.</p>
         <div className="fila-2">
           <Campo etiqueta="Barrio">
             <select
@@ -186,7 +182,7 @@ export function PanelReclamos({
             </select>
           </Campo>
         </div>
-        <Campo etiqueta="Buscar en la descripción, la dirección o el id">
+        <Campo etiqueta="Buscar" hint="Título, dirección o texto.">
           <input value={texto} onChange={(evento) => setTexto(evento.target.value)} />
         </Campo>
         <button className="btn btn-secundario" type="button" onClick={() => void cargar()} disabled={cargando}>
@@ -197,10 +193,7 @@ export function PanelReclamos({
 
       <section className="tarjeta tarjeta-tablero">
         <h2>Tablero</h2>
-        <p className="bajada">
-          Un reclamo pasa de columna cambiando su estado desde el detalle, abajo. “Asignado” sale de asignar una
-          cuadrilla, no se elige a mano.
-        </p>
+        <p className="bajada">Elegí un reclamo para ver el detalle y cambiar su estado.</p>
         {visibles.length === 0 ? (
           <p className="bajada">No hay reclamos con esos filtros.</p>
         ) : (
@@ -228,7 +221,7 @@ export function PanelReclamos({
                         </span>
                         <span className="tarjeta-kanban__titulo">{reclamo.titulo}</span>
                         <small>
-                          {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · score {reclamo.scoreCriticidad}
+                          {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio}
                         </small>
                         <small>{formatearFecha(reclamo.fechaCreacion)}</small>
                       </button>
@@ -257,7 +250,7 @@ export function PanelReclamos({
         ) : (
           <>
             <h2>Detalle</h2>
-            <p className="bajada">Elegí un reclamo en el tablero para ver el texto del vecino, su contacto y las acciones de gestión.</p>
+            <p className="bajada">Elegí un reclamo del tablero para ver qué pasó y quién lo cargó.</p>
           </>
         )}
       </section>
@@ -265,7 +258,7 @@ export function PanelReclamos({
   )
 }
 
-function DetalleReclamo({
+export function DetalleReclamo({
   token,
   reclamo,
   onExpirar,
@@ -279,12 +272,11 @@ function DetalleReclamo({
   onExpirar: () => void
   onActualizado: (reclamo: Reclamo) => void
   onVerZona: (barrio: string) => void
-  onVerCiudadano: (ciudadanoId: string) => void
+  onVerCiudadano?: (ciudadanoId: string) => void
   onVerSoap: (reclamoId: string) => void
 }) {
   const [vecino, setVecino] = useState<Ciudadano | null>(null)
   const [errorVecino, setErrorVecino] = useState<string | null>(null)
-  const [destino, setDestino] = useState<EstadoReclamo | ''>('')
   const [cuadrillas, setCuadrillas] = useState<Cuadrilla[]>([])
   const [cuadrillaId, setCuadrillaId] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -295,7 +287,6 @@ function DetalleReclamo({
     let cancelado = false
     setVecino(null)
     setErrorVecino(null)
-    setDestino('')
     setOk(null)
     setError(null)
     void obtenerCiudadano(token, reclamo.ciudadanoId)
@@ -315,13 +306,12 @@ function DetalleReclamo({
   const esperaAsignacion = (reclamo.estado === 'NUEVO' || reclamo.estado === 'EN_ANALISIS') && !reclamo.cuadrillaId
 
   useEffect(() => {
-    if (!esperaAsignacion) return
     let cancelado = false
-    void listarCuadrillas(token, reclamo.tipo, 'true')
+    void listarCuadrillas(token, reclamo.tipo)
       .then((lista) => {
         if (cancelado) return
         setCuadrillas(lista)
-        setCuadrillaId(lista[0]?.id ?? '')
+        setCuadrillaId(lista.find((item) => item.disponible)?.id ?? '')
       })
       .catch((fallo: unknown) => {
         if (cancelado) return
@@ -331,20 +321,20 @@ function DetalleReclamo({
     return () => {
       cancelado = true
     }
-  }, [esperaAsignacion, token, reclamo.tipo, reclamo.id, onExpirar])
+  }, [token, reclamo.tipo, reclamo.id, onExpirar])
 
   const destinos = destinosManuales(reclamo.estado)
+  const libres = cuadrillas.filter((item) => item.disponible)
+  const equipo = cuadrillas.find((item) => item.id === reclamo.cuadrillaId)
 
-  async function aplicarEstado(evento: React.FormEvent) {
-    evento.preventDefault()
-    if (!destino) return
+  async function aplicarEstado(nuevo: EstadoReclamo) {
     setOcupado(true)
     setError(null)
     setOk(null)
     try {
-      const actualizado = await cambiarEstado(token, reclamo.id, destino)
+      const actualizado = await cambiarEstado(token, reclamo.id, nuevo)
       onActualizado(actualizado)
-      setOk(`Estado actualizado a ${ETIQUETA_ESTADO[actualizado.estado]}.`)
+      setOk(`Pasó a ${ETIQUETA_ESTADO[actualizado.estado]}.`)
     } catch (fallo) {
       if (esNoAutorizado(fallo)) onExpirar()
       setError(textoError(fallo))
@@ -362,7 +352,7 @@ function DetalleReclamo({
     try {
       const actualizado = await asignarCuadrilla(token, reclamo.id, cuadrillaId)
       onActualizado(actualizado)
-      setOk('Cuadrilla asignada. El reclamo pasó a Asignado.')
+      setOk('Equipo asignado.')
     } catch (fallo) {
       if (esNoAutorizado(fallo)) onExpirar()
       setError(textoError(fallo))
@@ -372,144 +362,122 @@ function DetalleReclamo({
   }
 
   return (
-    <>
-      <h2>{reclamo.titulo}</h2>
-      {vecino ? (
-        <p className="vecino-nombre">
-          {vecino.nombre}
-          <span>{vecino.contacto}</span>
-        </p>
-      ) : (
-        <p className="bajada">{errorVecino ?? 'Cargando ciudadano…'}</p>
-      )}
-      <p className="relato">{reclamo.descripcion}</p>
-      <dl className="datos">
-        <div>
-          <dt>Tipo</dt>
-          <dd>{ETIQUETA_TIPO[reclamo.tipo]}</dd>
+    <div className="detalle-reclamo">
+      <div className="detalle-cuerpo">
+        <div className="fila-meta">
+          <h2>{reclamo.titulo.trim() || reclamo.descripcion.trim()}</h2>
+          {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
         </div>
-        <div>
-          <dt>Estado</dt>
-          <dd>
-            <PastillaEstado estado={reclamo.estado} />
-            {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
-          </dd>
+        {vecino ? (
+          <p className="vecino-nombre">
+            {vecino.nombre}
+            <span>{vecino.contacto}</span>
+          </p>
+        ) : (
+          <p className="bajada">{errorVecino ?? 'Cargando datos del vecino…'}</p>
+        )}
+        {reclamo.titulo.trim() ? <p className="relato">{reclamo.descripcion}</p> : null}
+        <dl className="datos">
+          <div>
+            <dt>Problema</dt>
+            <dd>{ETIQUETA_TIPO[reclamo.tipo]}</dd>
+          </div>
+          <div>
+            <dt>Dirección</dt>
+            <dd>{reclamo.ubicacion.direccion}</dd>
+          </div>
+          <div>
+            <dt>Barrio</dt>
+            <dd>{reclamo.barrio}</dd>
+          </div>
+          <div>
+            <dt>Equipo</dt>
+            <dd>{equipo ? equipo.nombre : 'Sin equipo'}</dd>
+          </div>
+          <div>
+            <dt>Ingreso</dt>
+            <dd>{formatearFecha(reclamo.fechaCreacion)}</dd>
+          </div>
+          <div>
+            <dt>Actualización</dt>
+            <dd>{formatearFecha(reclamo.fechaActualizacion)}</dd>
+          </div>
+        </dl>
+        {reclamo.estado === 'DUPLICADO' ? (
+          <p className="bajada">Ya había un reclamo igual. Se sigue ese y no se manda otro equipo.</p>
+        ) : null}
+        <div className="acciones">
+          {onVerCiudadano ? (
+            <button className="btn btn-secundario" type="button" onClick={() => onVerCiudadano(reclamo.ciudadanoId)}>
+              Ver vecino
+            </button>
+          ) : null}
+          <button className="btn btn-secundario" type="button" onClick={() => onVerSoap(reclamo.id)}>
+            Ver estado
+          </button>
+          <button className="btn btn-texto" type="button" onClick={() => onVerZona(reclamo.barrio)}>
+            Ver resumen de {reclamo.barrio}
+          </button>
         </div>
-        <div>
-          <dt>Dirección</dt>
-          <dd>{reclamo.ubicacion.direccion}</dd>
-        </div>
-        <div>
-          <dt>Barrio</dt>
-          <dd>{reclamo.barrio}</dd>
-        </div>
-        <div>
-          <dt>Coordenadas</dt>
-          <dd>
-            {reclamo.ubicacion.lat != null && reclamo.ubicacion.lon != null
-              ? `${reclamo.ubicacion.lat}, ${reclamo.ubicacion.lon}`
-              : 'Sin coordenadas'}
-          </dd>
-        </div>
-        <div>
-          <dt>Score</dt>
-          <dd>{reclamo.scoreCriticidad}</dd>
-        </div>
-        <div>
-          <dt>Cuadrilla</dt>
-          <dd>{reclamo.cuadrillaId ? <code>{reclamo.cuadrillaId}</code> : 'Sin asignar'}</dd>
-        </div>
-        <div>
-          <dt>Original</dt>
-          <dd>{reclamo.reclamoOriginalId ? <code>{reclamo.reclamoOriginalId}</code> : '—'}</dd>
-        </div>
-        <div>
-          <dt>Alta</dt>
-          <dd>{formatearFecha(reclamo.fechaCreacion)}</dd>
-        </div>
-        <div>
-          <dt>Actualización</dt>
-          <dd>{formatearFecha(reclamo.fechaActualizacion)}</dd>
-        </div>
-      </dl>
-      <p className="meta">
-        Reclamo <code>{recortar(reclamo.id)}</code> <Copiar valor={reclamo.id} />
-        {' · '}
-        Ciudadano <code>{recortar(reclamo.ciudadanoId)}</code> <Copiar valor={reclamo.ciudadanoId} />
-      </p>
-      <div className="acciones">
-        <button className="btn btn-secundario" type="button" onClick={() => onVerCiudadano(reclamo.ciudadanoId)}>
-          Ver ciudadano
-        </button>
-        <button className="btn btn-secundario" type="button" onClick={() => onVerSoap(reclamo.id)}>
-          Consultar por SOAP
-        </button>
-        <button className="btn btn-texto" type="button" onClick={() => onVerZona(reclamo.barrio)}>
-          Ver resumen de IA de {reclamo.barrio}
-        </button>
       </div>
 
-      {destinos.length > 0 ? (
-        <form className="bloque" onSubmit={(evento) => void aplicarEstado(evento)}>
-          <h3>Cambiar estado</h3>
-          <p className="bajada">
-            PUT /reclamos/&#123;id&#125;/estado. Asignado y Duplicado no se eligen acá: Asignado sale de asignar una
-            cuadrilla y Duplicado lo marca la detección. El resto publica reclamo.estado_cambiado; Resuelto publica
-            reclamo.resuelto y libera la cuadrilla.
-          </p>
-          <Campo etiqueta="Nuevo estado">
-            <select
-              required
-              value={destino}
-              onChange={(evento) => setDestino(evento.target.value as EstadoReclamo)}
-            >
-              <option value="">Elegir…</option>
-              {destinos.map((item) => (
-                <option key={item} value={item}>
-                  {ETIQUETA_ESTADO[item]}
-                </option>
-              ))}
-            </select>
-          </Campo>
-          <button className="btn btn-primario" type="submit" disabled={ocupado || !destino}>
-            Guardar estado
-          </button>
-        </form>
-      ) : (
-        <p className="bajada">Este estado es final. No admite otra transición.</p>
-      )}
-
-      {esperaAsignacion ? (
-        <form className="bloque" onSubmit={(evento) => void aplicarCuadrilla(evento)}>
-          <h3>Asignar cuadrilla a mano</h3>
-          <p className="bajada">
-            PUT /reclamos/&#123;id&#125;/asignar-cuadrilla. Pasa el reclamo a Asignado y publica reclamo.asignado. Solo
-            cuadrillas libres de {ETIQUETA_TIPO[reclamo.tipo]}. Si el alta ya tomó una automáticamente, este bloque no
-            aparece.
-          </p>
-          {cuadrillas.length === 0 ? (
-            <p className="bajada">No hay cuadrillas libres de esta especialidad.</p>
-          ) : (
-            <>
-              <Campo etiqueta="Cuadrilla">
-                <select value={cuadrillaId} onChange={(evento) => setCuadrillaId(evento.target.value)}>
-                  {cuadrillas.map((cuadrilla) => (
-                    <option key={cuadrilla.id} value={cuadrilla.id}>
-                      {cuadrilla.nombre}
-                    </option>
-                  ))}
-                </select>
-              </Campo>
-              <button className="btn btn-primario" type="submit" disabled={ocupado}>
-                Asignar
-              </button>
-            </>
-          )}
-        </form>
-      ) : null}
-
-      {error ? <Aviso tono="error">{error}</Aviso> : null}
-      {ok ? <Aviso tono="ok">{ok}</Aviso> : null}
-    </>
+      <aside className="detalle-estados">
+        <details className="lista-abrible" open key={reclamo.id}>
+          <summary>
+            <span>Estado</span>
+            <PastillaEstado estado={reclamo.estado} />
+          </summary>
+          <ol className="lista-estados">
+            {COLUMNAS_KANBAN.map((estado) => {
+              const actual = estado === reclamo.estado
+              const posible = destinos.includes(estado)
+              return (
+                <li key={estado} className={actual ? 'actual' : posible ? 'posible' : 'otro'}>
+                  {posible ? (
+                    <button type="button" disabled={ocupado} onClick={() => void aplicarEstado(estado)}>
+                      <PastillaEstado estado={estado} />
+                    </button>
+                  ) : (
+                    <span>
+                      <PastillaEstado estado={estado} />
+                      {actual ? <small>Actual</small> : null}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+        </details>
+        {destinos.length === 0 && !esperaAsignacion ? (
+          <p className="bajada">Este reclamo ya no cambia de estado.</p>
+        ) : null}
+        {esperaAsignacion ? (
+          <form className="bloque" onSubmit={(evento) => void aplicarCuadrilla(evento)}>
+            <h3>Asignar equipo</h3>
+            <p className="bajada">Elegí quién se ocupa. El reclamo pasa a Asignado.</p>
+            {libres.length === 0 ? (
+              <p className="bajada">No hay equipos libres para este problema.</p>
+            ) : (
+              <>
+                <Campo etiqueta="Equipo">
+                  <select value={cuadrillaId} onChange={(evento) => setCuadrillaId(evento.target.value)}>
+                    {libres.map((cuadrilla) => (
+                      <option key={cuadrilla.id} value={cuadrilla.id}>
+                        {cuadrilla.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+                <button className="btn btn-primario" type="submit" disabled={ocupado || !cuadrillaId}>
+                  Asignar
+                </button>
+              </>
+            )}
+          </form>
+        ) : null}
+        {error ? <Aviso tono="error">{error}</Aviso> : null}
+        {ok ? <Aviso tono="ok">{ok}</Aviso> : null}
+      </aside>
+    </div>
   )
 }

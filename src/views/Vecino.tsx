@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ApiError,
   crearCiudadano,
@@ -8,10 +8,11 @@ import {
   obtenerReclamo,
   textoError,
   type Ciudadano,
+  type EstadoReclamo,
   type Reclamo,
   type TipoReclamo,
 } from '../api.ts'
-import { BARRIOS, ETIQUETA_TIPO, formatearFecha, recortar, TIPOS } from '../catalogo.ts'
+import { BARRIOS, ETIQUETA_TIPO, formatearFecha, TIPOS } from '../catalogo.ts'
 import type { Sesion } from '../sesion.ts'
 import { Aviso, Campo, Copiar, PastillaEstado } from '../ui.tsx'
 
@@ -46,12 +47,14 @@ function leerFichaLocal(): FichaLocal | null {
   }
 }
 
-function numeroOpcional(valor: string, nombre: string): number | undefined {
-  const limpio = valor.trim().replace(',', '.')
-  if (!limpio) return undefined
-  const numero = Number(limpio)
-  if (Number.isNaN(numero)) throw new Error(`${nombre} no es un número`)
-  return numero
+const ESTADO_VECINO: Record<EstadoReclamo, string> = {
+  NUEVO: 'Recibido',
+  EN_ANALISIS: 'En revisión',
+  ASIGNADO: 'Con un equipo',
+  EN_PROCESO: 'En curso',
+  RESUELTO: 'Resuelto',
+  RECHAZADO: 'Cerrado',
+  DUPLICADO: 'Ya estaba cargado',
 }
 
 export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avisoAdmin?: boolean }) {
@@ -66,15 +69,13 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
   const [descripcion, setDescripcion] = useState('')
   const [direccion, setDireccion] = useState('')
   const [barrio, setBarrio] = useState('')
-  const [lat, setLat] = useState('')
-  const [lon, setLon] = useState('')
 
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [seguimiento, setSeguimiento] = useState<Reclamo | null>(null)
-  const [correlationId, setCorrelationId] = useState<string | null>(null)
   const [vigilarId, setVigilarId] = useState<string | null>(null)
 
+  const detalleRef = useRef<HTMLElement>(null)
   const [historial, setHistorial] = useState<Reclamo[]>([])
   const [consultaId, setConsultaId] = useState('')
   const [consulta, setConsulta] = useState<Reclamo | null>(null)
@@ -187,20 +188,16 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
     }
   }, [vigilarId])
 
+  useEffect(() => {
+    if (!seguimiento) return
+    detalleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [seguimiento?.id])
+
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
     setError(null)
     setEnviando(true)
     try {
-      const latitud = numeroOpcional(lat, 'La latitud')
-      const longitud = numeroOpcional(lon, 'La longitud')
-      if (latitud !== undefined && (latitud < -90 || latitud > 90)) {
-        throw new Error('La latitud tiene que estar entre -90 y 90')
-      }
-      if (longitud !== undefined && (longitud < -180 || longitud > 180)) {
-        throw new Error('La longitud tiene que estar entre -180 y 180')
-      }
-
       let ciudadano = ficha
       const contactoLimpio = contacto.trim()
       const nombreLimpio = nombre.trim()
@@ -225,14 +222,11 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
           titulo: titulo.trim(),
           descripcion: descripcion.trim(),
           direccion: direccion.trim(),
-          lat: latitud,
-          lon: longitud,
           barrio: barrio || undefined,
         },
         correlacion,
         sesion?.token,
       )
-      setCorrelationId(correlacion)
       setSeguimiento(reclamo)
       setVigilarId(reclamo.id)
       if (!sesion) recordarReclamo(reclamo.id)
@@ -259,21 +253,17 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
     }
   }
 
-  const notaTipo = TIPOS.find((item) => item.id === tipo)?.nota
-
   return (
     <div className="grilla-2">
       <form className="tarjeta formulario" onSubmit={(evento) => void enviar(evento)}>
         <h2>Nuevo reclamo</h2>
         <p className="bajada">
           {avisoAdmin
-            ? 'Tu sesión es de admin y este formulario no la usa: el reclamo se carga como alta pública, y el panel lo va a listar.'
-            : sesion
-              ? 'Estás logueado como vecino: el ciudadano queda vinculado a tu cuenta y después podés ver el historial.'
-              : 'Sin cuenta también se puede reclamar. El alta de ciudadano y de reclamo son públicas. Iniciá sesión en la barra si querés historial.'}
+            ? 'Desde acá podés cargar un reclamo como lo haría un vecino.'
+            : 'Contanos qué está pasando y dónde. Después vas a poder seguir el estado desde esta misma pantalla.'}
         </p>
 
-        {cargandoFicha ? <p className="bajada">Buscando tu ficha…</p> : null}
+        {cargandoFicha ? <p className="bajada">Cargando tus datos…</p> : null}
 
         <Campo etiqueta="Nombre">
           <input
@@ -284,7 +274,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
             disabled={Boolean(sesion && ficha)}
           />
         </Campo>
-        <Campo etiqueta="Contacto" hint="Email o teléfono. Tiene que ser único.">
+        <Campo etiqueta="Contacto" hint="Un mail o un teléfono para poder avisarte.">
           <input
             required
             maxLength={150}
@@ -294,15 +284,10 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
           />
         </Campo>
         {sesion && sinFicha ? (
-          <p className="bajada">Tu cuenta todavía no tiene ciudadano. Se crea al enviar el reclamo.</p>
-        ) : null}
-        {ficha ? (
-          <p className="meta">
-            Ciudadano <code>{recortar(ficha.id)}</code>
-          </p>
+          <p className="bajada">La primera vez guardamos tu nombre y contacto junto con el reclamo.</p>
         ) : null}
 
-        <Campo etiqueta="Tipo" hint={notaTipo}>
+        <Campo etiqueta="Problema">
           <select value={tipo} onChange={(evento) => setTipo(evento.target.value as TipoReclamo)}>
             {TIPOS.map((item) => (
               <option key={item.id} value={item.id}>
@@ -311,7 +296,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
             ))}
           </select>
         </Campo>
-        <Campo etiqueta="Título o asunto" hint="Un resumen corto del problema.">
+        <Campo etiqueta="Título" hint="Un resumen corto.">
           <input
             required
             maxLength={150}
@@ -339,12 +324,9 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
             placeholder="Av. Santa Fe 3200"
           />
         </Campo>
-        <Campo
-          etiqueta="Barrio"
-          hint="Si lo dejás vacío, el backend lo pide a Nominatim a partir de la dirección. Hace falta internet y puede tardar unos segundos."
-        >
+        <Campo etiqueta="Barrio" hint="Si no lo sabés, lo completamos con la dirección.">
           <select value={barrio} onChange={(evento) => setBarrio(evento.target.value)}>
-            <option value="">Resolver con la dirección</option>
+            <option value="">No estoy seguro</option>
             {BARRIOS.map((nombreBarrio) => (
               <option key={nombreBarrio} value={nombreBarrio}>
                 {nombreBarrio}
@@ -352,14 +334,6 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
             ))}
           </select>
         </Campo>
-        <div className="fila-2">
-          <Campo etiqueta="Latitud" hint="Opcional. Entre -90 y 90.">
-            <input inputMode="decimal" value={lat} onChange={(evento) => setLat(evento.target.value)} placeholder="-34.5875" />
-          </Campo>
-          <Campo etiqueta="Longitud" hint="Opcional. Entre -180 y 180.">
-            <input inputMode="decimal" value={lon} onChange={(evento) => setLon(evento.target.value)} placeholder="-58.4108" />
-          </Campo>
-        </div>
         {error ? <Aviso tono="error">{error}</Aviso> : null}
         <button className="btn btn-primario" type="submit" disabled={enviando || cargandoFicha}>
           {enviando ? 'Enviando…' : 'Enviar reclamo'}
@@ -368,42 +342,31 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
 
       <div className="columna">
         {seguimiento ? (
-          <article className="tarjeta">
-            <h2>Lo que registró el backend</h2>
-            <FichaReclamo reclamo={seguimiento} />
-            {correlationId ? (
-              <p className="meta">
-                Correlation id <code>{correlationId}</code> (header X-Correlation-Id, queda en el log).
-              </p>
-            ) : null}
-            <Pasos reclamo={seguimiento} />
-            <p className="bajada">
-              Para probar duplicados, cargá otro reclamo del mismo tipo, con una descripción parecida, en el mismo
-              barrio (o a menos de 150 m si completás coordenadas). El segundo debería quedar en Duplicado, con el id
-              del original, y sin cuadrilla.
-            </p>
+          <article className="tarjeta" ref={detalleRef}>
+            <DetalleVecino reclamo={seguimiento} />
           </article>
         ) : (
           <article className="tarjeta">
             <h2>Seguimiento</h2>
-            <p className="bajada">
-              Después del alta, esta pantalla consulta el reclamo varias veces. La validación de IA y la asignación de
-              cuadrilla ocurren por RabbitMQ, un instante después del POST.
-            </p>
+            <p className="bajada">Cuando envíes un reclamo, acá vas a ver en qué está.</p>
           </article>
         )}
 
         <article className="tarjeta">
-          <h2>{sesion ? 'Mi historial' : 'Reclamos de esta ficha'}</h2>
+          <h2>Mis reclamos</h2>
           {historial.length === 0 ? (
-            <p className="bajada">Todavía no hay reclamos para mostrar.</p>
+            <p className="bajada">Todavía no enviaste ninguno.</p>
           ) : (
             <ul className="lista-simple">
               {historial.map((reclamo) => (
                 <li key={reclamo.id}>
-                  <button type="button" className="item-lista" onClick={() => setSeguimiento(reclamo)}>
-                    <PastillaEstado estado={reclamo.estado} />
-                    <span>{reclamo.titulo}</span>
+                  <button
+                    type="button"
+                    className={`item-lista ${seguimiento?.id === reclamo.id ? 'activo' : ''}`}
+                    onClick={() => setSeguimiento(reclamo)}
+                  >
+                    <PastillaEstado estado={reclamo.estado} texto={ESTADO_VECINO[reclamo.estado]} />
+                    <span className="item-lista-titulo">{reclamo.titulo.trim() || reclamo.descripcion.trim()}</span>
                     <small>
                       {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · {formatearFecha(reclamo.fechaCreacion)}
                     </small>
@@ -415,85 +378,94 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
         </article>
 
         <form className="tarjeta formulario" onSubmit={(evento) => void buscar(evento)}>
-          <h2>Consultar estado</h2>
-          <p className="bajada">GET /reclamos/&#123;id&#125; es público: alcanza con el id, sin cuenta.</p>
-          <Campo etiqueta="Id del reclamo">
+          <h2>Buscar un reclamo</h2>
+          <p className="bajada">Si te pasaron un número de seguimiento, pegalo acá.</p>
+          <Campo etiqueta="Número de seguimiento">
             <input
               required
               spellCheck={false}
               value={consultaId}
               onChange={(evento) => setConsultaId(evento.target.value)}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              placeholder="Pegá el número"
             />
           </Campo>
           {errorConsulta ? <Aviso tono="error">{errorConsulta}</Aviso> : null}
           <button className="btn btn-secundario" type="submit">
-            Consultar
+            Ver estado
           </button>
-          {consulta ? <FichaReclamo reclamo={consulta} /> : null}
+          {consulta ? <DetalleVecino reclamo={consulta} /> : null}
         </form>
       </div>
     </div>
   )
 }
 
-function FichaReclamo({ reclamo }: { reclamo: Reclamo }) {
+function DetalleVecino({ reclamo }: { reclamo: Reclamo }) {
+  const titulo = reclamo.titulo.trim()
   return (
-    <div className="ficha">
-      <div className="fila-meta">
-        <PastillaEstado estado={reclamo.estado} />
-        {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
-        <span className="meta">Score {reclamo.scoreCriticidad}</span>
+    <div className="detalle-reclamo">
+      <div className="detalle-cuerpo">
+        <div className="fila-meta">
+          <h2>{titulo || reclamo.descripcion.trim()}</h2>
+          {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
+        </div>
+        {titulo ? <p className="relato">{reclamo.descripcion}</p> : null}
+        <p>
+          {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.ubicacion.direccion}
+          {reclamo.barrio ? ` · ${reclamo.barrio}` : ''}
+        </p>
+        {reclamo.estado === 'DUPLICADO' ? (
+          <p className="bajada">Ya había un reclamo igual en la zona. Vamos a seguir ese.</p>
+        ) : reclamo.cuadrillaId ? (
+          <p className="bajada">Hay un equipo a cargo.</p>
+        ) : null}
+        <p className="meta seguimiento-numero">
+          Número de seguimiento
+          <span>{reclamo.id}</span>
+          <Copiar valor={reclamo.id} />
+        </p>
+        <p className="meta">Actualizado {formatearFecha(reclamo.fechaActualizacion)}</p>
       </div>
-      <p className="relato-titulo">{reclamo.titulo}</p>
-      <p className="relato">{reclamo.descripcion}</p>
-      <p>
-        {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.ubicacion.direccion} · {reclamo.barrio}
-      </p>
-      <p className="meta">
-        Id <code>{reclamo.id}</code> <Copiar valor={reclamo.id} />
-      </p>
-      {reclamo.reclamoOriginalId ? (
-        <p className="meta">
-          Duplicado de <code>{reclamo.reclamoOriginalId}</code>
-        </p>
-      ) : null}
-      {reclamo.cuadrillaId ? (
-        <p className="meta">
-          Cuadrilla <code>{reclamo.cuadrillaId}</code>
-        </p>
-      ) : (
-        <p className="meta">Sin cuadrilla asignada.</p>
-      )}
-      <p className="meta">Actualizado {formatearFecha(reclamo.fechaActualizacion)}</p>
+      <aside className="detalle-estados">
+        <details className="lista-abrible" open>
+          <summary>
+            <span>Estado</span>
+            <PastillaEstado estado={reclamo.estado} texto={ESTADO_VECINO[reclamo.estado]} />
+          </summary>
+          <Pasos reclamo={reclamo} />
+        </details>
+      </aside>
     </div>
   )
 }
 
 function Pasos({ reclamo }: { reclamo: Reclamo }) {
   const duplicado = reclamo.estado === 'DUPLICADO'
-  const dejoDeSerNuevo = reclamo.estado !== 'NUEVO'
-  // El alta guarda score 0. SvcIA lo escribe al validar. Si sigue en Nuevo con score, no había cuadrilla libre.
-  const validado = dejoDeSerNuevo || reclamo.scoreCriticidad > 0
-  const sinCuadrillaLibre = reclamo.estado === 'NUEVO' && reclamo.scoreCriticidad > 0 && !reclamo.cuadrillaId
+  const revisado = reclamo.estado !== 'NUEVO' || reclamo.scoreCriticidad > 0
+  const conEquipo = Boolean(reclamo.cuadrillaId)
+  const esperandoEquipo = revisado && !duplicado && !conEquipo && reclamo.estado !== 'RESUELTO' && reclamo.estado !== 'RECHAZADO'
   return (
     <ol className="pasos">
-      <li className="hecho">Alta publicada (reclamo.creado).</li>
-      <li className={validado ? 'hecho' : 'espera'}>
-        {validado
-          ? 'SvcIA ya lo validó: buscó duplicados y, si no lo era, calculó el score.'
-          : 'Esperando a SvcIA. Si sigue en Nuevo y el score queda en 0, revisá que RabbitMQ esté corriendo: la validación no es parte del POST.'}
-      </li>
-      <li className={duplicado || reclamo.cuadrillaId ? 'hecho' : 'espera'}>
+      <li className="hecho">Recibimos tu reclamo.</li>
+      <li className={revisado ? 'hecho' : 'espera'}>
         {duplicado
-          ? 'Quedó duplicado: no recibe cuadrilla.'
-          : reclamo.cuadrillaId
-            ? 'SvcCuadrillas asignó una cuadrilla libre de la especialidad.'
-            : sinCuadrillaLibre
-              ? 'No hay una cuadrilla libre de esta especialidad: las que hay ya están ocupadas. El reclamo queda en Nuevo hasta que se resuelva otro del mismo tipo y se libere una, o hasta que el panel municipal asigne una a mano.'
-              : validado
-                ? 'Validado, pero todavía no tiene cuadrilla. En el panel municipal se puede asignar una a mano.'
-                : 'La cuadrilla se asigna recién después de la validación.'}
+          ? 'Encontramos uno igual que ya estaba cargado.'
+          : revisado
+            ? 'Ya lo revisamos.'
+            : 'Lo estamos revisando.'}
+      </li>
+      <li className={duplicado || conEquipo || reclamo.estado === 'RESUELTO' ? 'hecho' : 'espera'}>
+        {duplicado
+          ? 'No hace falta mandar otro equipo.'
+          : reclamo.estado === 'RESUELTO'
+            ? 'Quedó resuelto.'
+            : reclamo.estado === 'RECHAZADO'
+              ? 'Se cerró sin intervención.'
+              : conEquipo
+                ? 'Hay un equipo trabajando en esto.'
+                : esperandoEquipo
+                  ? 'Todavía no hay un equipo libre. Te avisamos cuando se asigne.'
+                  : 'El equipo se asigna después de la revisión.'}
       </li>
     </ol>
   )
