@@ -119,7 +119,7 @@ export function MapaReclamos({
         fillOpacity: 0.95,
       })
       marca.bindPopup(
-        `<strong>${escapar(reclamo.titulo)}</strong><br>${escapar(ETIQUETA_TIPO[reclamo.tipo])} · ${escapar(ETIQUETA_ESTADO[reclamo.estado])}<br>${escapar(reclamo.ubicacion.direccion)}`,
+        `<strong>${escapar(reclamo.titulo)}</strong><br>${escapar(ETIQUETA_TIPO[reclamo.tipo])} · ${escapar(ETIQUETA_ESTADO[reclamo.estado])} · score ${reclamo.scoreCriticidad}<br>${escapar(reclamo.ubicacion.direccion)}`,
       )
       marca.on('click', () => elegir.current(reclamo.id))
       marca.addTo(grupo)

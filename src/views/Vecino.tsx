@@ -14,7 +14,7 @@ import {
 } from '../api.ts'
 import { BARRIOS, ETIQUETA_TIPO, formatearFecha, TIPOS } from '../catalogo.ts'
 import type { Sesion } from '../sesion.ts'
-import { Aviso, Campo, Copiar, PastillaEstado } from '../ui.tsx'
+import { Aviso, Campo, Copiar, FotoReclamo, PastillaEstado } from '../ui.tsx'
 
 const CLAVE_FICHA = 'ticketera.ficha'
 const CLAVE_RECLAMOS = 'ticketera.reclamos'
@@ -47,6 +47,38 @@ function leerFichaLocal(): FichaLocal | null {
   }
 }
 
+type FotoLista = { base64: string; tipo: string; vista: string }
+
+async function prepararFoto(archivo: File): Promise<FotoLista> {
+  if (!archivo.type.startsWith('image/')) {
+    throw new Error('Elegí una foto (JPEG, PNG o WebP).')
+  }
+  const bitmap = await createImageBitmap(archivo)
+  const maximo = 1280
+  const escala = Math.min(1, maximo / Math.max(bitmap.width, bitmap.height))
+  const ancho = Math.max(1, Math.round(bitmap.width * escala))
+  const alto = Math.max(1, Math.round(bitmap.height * escala))
+  const lienzo = document.createElement('canvas')
+  lienzo.width = ancho
+  lienzo.height = alto
+  const ctx = lienzo.getContext('2d')
+  if (!ctx) throw new Error('No se pudo preparar la foto.')
+  ctx.drawImage(bitmap, 0, 0, ancho, alto)
+  bitmap.close()
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    lienzo.toBlob((resultado) => {
+      if (resultado) resolve(resultado)
+      else reject(new Error('No se pudo preparar la foto.'))
+    }, 'image/jpeg', 0.82)
+  })
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let binario = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binario += String.fromCharCode(...bytes.subarray(i, Math.min(i + 0x8000, bytes.length)))
+  }
+  return { base64: btoa(binario), tipo: 'image/jpeg', vista: URL.createObjectURL(blob) }
+}
+
 const ESTADO_VECINO: Record<EstadoReclamo, string> = {
   NUEVO: 'Recibido',
   EN_ANALISIS: 'En revisión',
@@ -69,6 +101,8 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
   const [descripcion, setDescripcion] = useState('')
   const [direccion, setDireccion] = useState('')
   const [barrio, setBarrio] = useState('')
+  const [foto, setFoto] = useState<FotoLista | null>(null)
+  const fotoInput = useRef<HTMLInputElement>(null)
 
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -223,6 +257,8 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
           descripcion: descripcion.trim(),
           direccion: direccion.trim(),
           barrio: barrio || undefined,
+          imagen: foto?.base64,
+          imagenTipo: foto?.tipo,
         },
         correlacion,
         sesion?.token,
@@ -233,6 +269,9 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
       setHistorial((actual) => [reclamo, ...actual.filter((item) => item.id !== reclamo.id)])
       setTitulo('')
       setDescripcion('')
+      if (foto) URL.revokeObjectURL(foto.vista)
+      setFoto(null)
+      if (fotoInput.current) fotoInput.current.value = ''
     } catch (fallo) {
       setError(fallo instanceof Error && !(fallo instanceof ApiError) && !(fallo instanceof TypeError)
         ? fallo.message
@@ -315,6 +354,44 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
             placeholder="Cable pelado colgando desde el poste, a metros de la esquina"
           />
         </Campo>
+        <Campo etiqueta="Foto" hint="Opcional. Gemma la usa para ver el daño y afinar el análisis.">
+          <input
+            ref={fotoInput}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(evento) => {
+              const archivo = evento.target.files?.[0]
+              if (!archivo) return
+              void prepararFoto(archivo)
+                .then((lista) => {
+                  setFoto((anterior) => {
+                    if (anterior) URL.revokeObjectURL(anterior.vista)
+                    return lista
+                  })
+                  setError(null)
+                })
+                .catch((fallo: unknown) => {
+                  setError(fallo instanceof Error ? fallo.message : 'No se pudo leer la foto.')
+                })
+            }}
+          />
+        </Campo>
+        {foto ? (
+          <div className="foto-elegida">
+            <img src={foto.vista} alt="Vista previa de la foto" />
+            <button
+              type="button"
+              className="btn btn-texto"
+              onClick={() => {
+                URL.revokeObjectURL(foto.vista)
+                setFoto(null)
+                if (fotoInput.current) fotoInput.current.value = ''
+              }}
+            >
+              Quitar foto
+            </button>
+          </div>
+        ) : null}
         <Campo etiqueta="Dirección">
           <input
             required
@@ -405,6 +482,7 @@ function DetalleVecino({ reclamo }: { reclamo: Reclamo }) {
   return (
     <div className="detalle-reclamo">
       <div className="detalle-cuerpo">
+        {reclamo.tieneImagen ? <FotoReclamo id={reclamo.id} /> : null}
         <div className="fila-meta">
           <h2>{titulo || reclamo.descripcion.trim()}</h2>
           {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}

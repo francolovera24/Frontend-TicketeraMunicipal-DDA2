@@ -191,6 +191,27 @@ input, select, textarea {
 
 textarea { resize: vertical; }
 
+.foto-reclamo {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--linea);
+}
+
+.foto-elegida {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.foto-elegida img {
+  width: 96px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
 .btn {
   border: 0;
   border-radius: 8px;

@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import type { EstadoReclamo } from './api.ts'
+import { useState, type ReactNode } from 'react'
+import { urlImagen, type EstadoReclamo } from './api.ts'
 import { ETIQUETA_ESTADO } from './catalogo.ts'
 
 export function Aviso({ tono, children }: { tono: 'error' | 'ok' | 'info'; children: string }) {
@@ -25,6 +25,19 @@ export function Campo({
       {children}
       {hint ? <small>{hint}</small> : null}
     </label>
+  )
+}
+
+export function FotoReclamo({ id }: { id: string }) {
+  const [visible, setVisible] = useState(true)
+  if (!visible) return null
+  return (
+    <img
+      className="foto-reclamo"
+      src={urlImagen(id)}
+      alt="Foto del problema"
+      onError={() => setVisible(false)}
+    />
   )
 }
 

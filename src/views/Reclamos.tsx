@@ -21,7 +21,7 @@ import {
   ETIQUETA_TIPO,
   formatearFecha,
 } from '../catalogo.ts'
-import { Aviso, Campo, PastillaEstado } from '../ui.tsx'
+import { Aviso, Campo, FotoReclamo, PastillaEstado } from '../ui.tsx'
 import { MapaReclamos } from './MapaReclamos.tsx'
 
 const COLUMNAS_KANBAN: EstadoReclamo[] = [
@@ -221,7 +221,7 @@ export function PanelReclamos({
                         </span>
                         <span className="tarjeta-kanban__titulo">{reclamo.titulo}</span>
                         <small>
-                          {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio}
+                          {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · score {reclamo.scoreCriticidad}
                         </small>
                         <small>{formatearFecha(reclamo.fechaCreacion)}</small>
                       </button>
@@ -364,6 +364,7 @@ export function DetalleReclamo({
   return (
     <div className="detalle-reclamo">
       <div className="detalle-cuerpo">
+        {reclamo.tieneImagen ? <FotoReclamo id={reclamo.id} /> : null}
         <div className="fila-meta">
           <h2>{reclamo.titulo.trim() || reclamo.descripcion.trim()}</h2>
           {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
@@ -393,6 +394,10 @@ export function DetalleReclamo({
           <div>
             <dt>Equipo</dt>
             <dd>{equipo ? equipo.nombre : 'Sin equipo'}</dd>
+          </div>
+          <div>
+            <dt>Score</dt>
+            <dd>{reclamo.scoreCriticidad}</dd>
           </div>
           <div>
             <dt>Ingreso</dt>

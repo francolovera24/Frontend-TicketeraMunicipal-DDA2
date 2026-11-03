@@ -93,7 +93,7 @@ export function PanelResumen({
             <table className="tabla">
               <thead>
                 <tr>
-                  <th>Prioridad</th>
+                  <th>Score</th>
                   <th>Reclamo</th>
                   <th>Estado</th>
                   <th>Antigüedad</th>

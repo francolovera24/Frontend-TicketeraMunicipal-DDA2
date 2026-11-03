@@ -26,6 +26,7 @@ export type Reclamo = {
   reclamoOriginalId: string | null
   fechaCreacion: string
   fechaActualizacion: string
+  tieneImagen: boolean
 }
 
 export type Ciudadano = {
@@ -228,6 +229,12 @@ export type AltaReclamo = {
   lat?: number
   lon?: number
   barrio?: string
+  imagen?: string
+  imagenTipo?: string
+}
+
+export function urlImagen(id: string): string {
+  return `${BASE}/reclamos/${id}/imagen`
 }
 
 export function crearReclamo(alta: AltaReclamo, correlationId: string, token?: string | null): Promise<Reclamo> {
@@ -241,6 +248,10 @@ export function crearReclamo(alta: AltaReclamo, correlationId: string, token?: s
   if (alta.lat !== undefined) body.lat = alta.lat
   if (alta.lon !== undefined) body.lon = alta.lon
   if (alta.barrio) body.barrio = alta.barrio
+  if (alta.imagen) {
+    body.imagen = alta.imagen
+    body.imagenTipo = alta.imagenTipo
+  }
   return pedir<Reclamo>('/reclamos', {
     method: 'POST',
     body,
