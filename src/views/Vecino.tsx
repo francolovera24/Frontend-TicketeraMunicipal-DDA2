@@ -14,7 +14,7 @@ import {
 } from '../api.ts'
 import { BARRIOS, ETIQUETA_TIPO, formatearFecha, TIPOS } from '../catalogo.ts'
 import type { Sesion } from '../sesion.ts'
-import { Aviso, Campo, Copiar, FotoReclamo, PastillaEstado } from '../ui.tsx'
+import { Aviso, Campo, Copiar, FotoReclamo, MiniFoto, PastillaEstado } from '../ui.tsx'
 
 const CLAVE_FICHA = 'ticketera.ficha'
 const CLAVE_RECLAMOS = 'ticketera.reclamos'
@@ -379,17 +379,22 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
         {foto ? (
           <div className="foto-elegida">
             <img src={foto.vista} alt="Vista previa de la foto" />
-            <button
-              type="button"
-              className="btn btn-texto"
-              onClick={() => {
-                URL.revokeObjectURL(foto.vista)
-                setFoto(null)
-                if (fotoInput.current) fotoInput.current.value = ''
-              }}
-            >
-              Quitar foto
-            </button>
+            <div>
+              <p className={descripcion.trim() ? 'foto-elegida-texto' : 'bajada'}>
+                {descripcion.trim() || 'Contá arriba qué se ve en la foto.'}
+              </p>
+              <button
+                type="button"
+                className="btn btn-texto"
+                onClick={() => {
+                  URL.revokeObjectURL(foto.vista)
+                  setFoto(null)
+                  if (fotoInput.current) fotoInput.current.value = ''
+                }}
+              >
+                Quitar foto
+              </button>
+            </div>
           </div>
         ) : null}
         <Campo etiqueta="Dirección">
@@ -443,7 +448,11 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
                     onClick={() => setSeguimiento(reclamo)}
                   >
                     <PastillaEstado estado={reclamo.estado} texto={ESTADO_VECINO[reclamo.estado]} />
+                    {reclamo.tieneImagen ? <MiniFoto id={reclamo.id} /> : null}
                     <span className="item-lista-titulo">{reclamo.titulo.trim() || reclamo.descripcion.trim()}</span>
+                    {reclamo.descripcion.trim() && reclamo.descripcion.trim() !== reclamo.titulo.trim() ? (
+                      <small>{reclamo.descripcion}</small>
+                    ) : null}
                     <small>
                       {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · {formatearFecha(reclamo.fechaCreacion)}
                     </small>
@@ -482,12 +491,12 @@ function DetalleVecino({ reclamo }: { reclamo: Reclamo }) {
   return (
     <div className="detalle-reclamo">
       <div className="detalle-cuerpo">
-        {reclamo.tieneImagen ? <FotoReclamo id={reclamo.id} /> : null}
+        {reclamo.tieneImagen ? <FotoReclamo id={reclamo.id} descripcion={reclamo.descripcion} /> : null}
         <div className="fila-meta">
           <h2>{titulo || reclamo.descripcion.trim()}</h2>
           {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
         </div>
-        {titulo ? <p className="relato">{reclamo.descripcion}</p> : null}
+        {titulo && !reclamo.tieneImagen ? <p className="relato">{reclamo.descripcion}</p> : null}
         <p>
           {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.ubicacion.direccion}
           {reclamo.barrio ? ` · ${reclamo.barrio}` : ''}

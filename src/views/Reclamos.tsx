@@ -21,7 +21,7 @@ import {
   ETIQUETA_TIPO,
   formatearFecha,
 } from '../catalogo.ts'
-import { Aviso, Campo, FotoReclamo, PastillaEstado } from '../ui.tsx'
+import { Aviso, Campo, FotoReclamo, MiniFoto, PastillaEstado } from '../ui.tsx'
 import { MapaReclamos } from './MapaReclamos.tsx'
 
 const COLUMNAS_KANBAN: EstadoReclamo[] = [
@@ -36,12 +36,14 @@ const COLUMNAS_KANBAN: EstadoReclamo[] = [
 
 export function PanelReclamos({
   token,
+  reclamoInicial,
   onExpirar,
   onVerZona,
   onVerCiudadano,
   onVerSoap,
 }: {
   token: string
+  reclamoInicial: string | null
   onExpirar: () => void
   onVerZona: (barrio: string) => void
   onVerCiudadano: (ciudadanoId: string) => void
@@ -54,7 +56,8 @@ export function PanelReclamos({
   const [enVivo, setEnVivo] = useState(true)
   const [reclamos, setReclamos] = useState<Reclamo[]>([])
   const [recien, setRecien] = useState<Set<string>>(new Set())
-  const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null)
+  const [seleccionadoId, setSeleccionadoId] = useState<string | null>(reclamoInicial)
+  const detalleRef = useRef<HTMLElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
   const conocidos = useRef<Set<string> | null>(null)
@@ -89,6 +92,12 @@ export function PanelReclamos({
     conocidos.current = null
     void cargar()
   }, [cargar])
+
+  useEffect(() => {
+    if (!reclamoInicial) return
+    setSeleccionadoId(reclamoInicial)
+    detalleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [reclamoInicial])
 
   useEffect(() => {
     if (!enVivo) return
@@ -219,7 +228,11 @@ export function PanelReclamos({
                           {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
                           {recien.has(reclamo.id) ? <span className="pastilla nuevo">Recién llegado</span> : null}
                         </span>
-                        <span className="tarjeta-kanban__titulo">{reclamo.titulo}</span>
+                        {reclamo.tieneImagen ? <MiniFoto id={reclamo.id} /> : null}
+                        <span className="tarjeta-kanban__titulo">{reclamo.titulo.trim() || reclamo.descripcion.trim()}</span>
+                        {reclamo.descripcion.trim() && reclamo.descripcion.trim() !== reclamo.titulo.trim() ? (
+                          <small className="tarjeta-kanban__relato">{reclamo.descripcion}</small>
+                        ) : null}
                         <small>
                           {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · score {reclamo.scoreCriticidad}
                         </small>
@@ -234,7 +247,7 @@ export function PanelReclamos({
         )}
       </section>
 
-      <section className="tarjeta">
+      <section className="tarjeta" ref={detalleRef}>
         {seleccionado ? (
           <DetalleReclamo
             token={token}
@@ -364,7 +377,7 @@ export function DetalleReclamo({
   return (
     <div className="detalle-reclamo">
       <div className="detalle-cuerpo">
-        {reclamo.tieneImagen ? <FotoReclamo id={reclamo.id} /> : null}
+        {reclamo.tieneImagen ? <FotoReclamo id={reclamo.id} descripcion={reclamo.descripcion} /> : null}
         <div className="fila-meta">
           <h2>{reclamo.titulo.trim() || reclamo.descripcion.trim()}</h2>
           {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
@@ -377,7 +390,7 @@ export function DetalleReclamo({
         ) : (
           <p className="bajada">{errorVecino ?? 'Cargando datos del vecino…'}</p>
         )}
-        {reclamo.titulo.trim() ? <p className="relato">{reclamo.descripcion}</p> : null}
+        {reclamo.titulo.trim() && !reclamo.tieneImagen ? <p className="relato">{reclamo.descripcion}</p> : null}
         <dl className="datos">
           <div>
             <dt>Problema</dt>

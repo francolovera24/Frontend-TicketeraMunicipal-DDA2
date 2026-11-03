@@ -7,10 +7,12 @@ export function PanelResumen({
   token,
   onExpirar,
   barrioInicial,
+  onVerReclamo,
 }: {
   token: string
   onExpirar: () => void
   barrioInicial: string
+  onVerReclamo: (reclamoId: string) => void
 }) {
   const [barrio, setBarrio] = useState(barrioInicial)
   const [barrioVisto, setBarrioVisto] = useState(barrioInicial)
@@ -101,7 +103,18 @@ export function PanelResumen({
               </thead>
               <tbody>
                 {resumen.ranking.map((item) => (
-                  <tr key={item.reclamoId}>
+                  <tr
+                    key={item.reclamoId}
+                    className="fila-clic"
+                    tabIndex={0}
+                    onClick={() => onVerReclamo(item.reclamoId)}
+                    onKeyDown={(evento) => {
+                      if (evento.key === 'Enter' || evento.key === ' ') {
+                        evento.preventDefault()
+                        onVerReclamo(item.reclamoId)
+                      }
+                    }}
+                  >
                     <td>{item.score}</td>
                     <td>
                       <strong>{item.titulo}</strong>

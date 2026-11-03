@@ -21,6 +21,7 @@ export function VistaMunicipal({ sesion, onExpirar }: { sesion: Sesion; onExpira
   const [barrioIa, setBarrioIa] = useState('Palermo')
   const [ciudadanoId, setCiudadanoId] = useState('')
   const [reclamoSoapId, setReclamoSoapId] = useState('')
+  const [reclamoDetalleId, setReclamoDetalleId] = useState<string | null>(null)
 
   return (
     <div className="columna">
@@ -41,6 +42,7 @@ export function VistaMunicipal({ sesion, onExpirar }: { sesion: Sesion; onExpira
       {tab === 'reclamos' ? (
         <PanelReclamos
           token={sesion.token}
+          reclamoInicial={reclamoDetalleId}
           onExpirar={onExpirar}
           onVerZona={(barrio) => {
             setBarrioIa(barrio)
@@ -75,7 +77,15 @@ export function VistaMunicipal({ sesion, onExpirar }: { sesion: Sesion; onExpira
         />
       ) : null}
       {tab === 'ia' ? (
-        <PanelResumen token={sesion.token} onExpirar={onExpirar} barrioInicial={barrioIa} />
+        <PanelResumen
+          token={sesion.token}
+          onExpirar={onExpirar}
+          barrioInicial={barrioIa}
+          onVerReclamo={(id) => {
+            setReclamoDetalleId(id)
+            setTab('reclamos')
+          }}
+        />
       ) : null}
       {tab === 'ciudadano' ? (
         <PanelCiudadano
