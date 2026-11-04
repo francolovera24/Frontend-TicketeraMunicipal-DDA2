@@ -7,12 +7,13 @@ import {
   miCiudadano,
   obtenerReclamo,
   textoError,
+  type AlcanceReclamo,
   type Ciudadano,
   type EstadoReclamo,
   type Reclamo,
   type TipoReclamo,
 } from '../api.ts'
-import { BARRIOS, ETIQUETA_TIPO, formatearFecha, TIPOS } from '../catalogo.ts'
+import { BARRIOS, ETIQUETA_ALCANCE, ETIQUETA_TIPO, formatearFecha, TIPOS } from '../catalogo.ts'
 import type { Sesion } from '../sesion.ts'
 import { Aviso, Campo, Copiar, FotoReclamo, MiniFoto, PastillaEstado } from '../ui.tsx'
 
@@ -97,6 +98,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
   const [cargandoFicha, setCargandoFicha] = useState(false)
 
   const [tipo, setTipo] = useState<TipoReclamo>('CABLEADO')
+  const [alcance, setAlcance] = useState<AlcanceReclamo | ''>('')
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [direccion, setDireccion] = useState('')
@@ -230,6 +232,10 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
     setError(null)
+    if (!alcance) {
+      setError('Seleccioná a quién afecta el problema.')
+      return
+    }
     setEnviando(true)
     try {
       let ciudadano = ficha
@@ -253,6 +259,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
         {
           ciudadanoId: ciudadano.id,
           tipo,
+          alcance,
           titulo: titulo.trim(),
           descripcion: descripcion.trim(),
           direccion: direccion.trim(),
@@ -267,6 +274,7 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
       setVigilarId(reclamo.id)
       if (!sesion) recordarReclamo(reclamo.id)
       setHistorial((actual) => [reclamo, ...actual.filter((item) => item.id !== reclamo.id)])
+      setAlcance('')
       setTitulo('')
       setDescripcion('')
       if (foto) URL.revokeObjectURL(foto.vista)
@@ -333,6 +341,17 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
                 {item.etiqueta}
               </option>
             ))}
+          </select>
+        </Campo>
+        <Campo etiqueta="¿A quién afecta el problema?">
+          <select
+            required
+            value={alcance}
+            onChange={(evento) => setAlcance(evento.target.value as AlcanceReclamo | '')}
+          >
+            <option value="">Seleccioná una opción</option>
+            <option value="PERSONAL">Personal: solo me afecta a mí</option>
+            <option value="COLECTIVO">Colectivo: afecta a varias personas</option>
           </select>
         </Campo>
         <Campo etiqueta="Título" hint="Un resumen corto.">
@@ -501,6 +520,7 @@ function DetalleVecino({ reclamo }: { reclamo: Reclamo }) {
           {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.ubicacion.direccion}
           {reclamo.barrio ? ` · ${reclamo.barrio}` : ''}
         </p>
+        <p>Alcance: {reclamo.alcance ? ETIQUETA_ALCANCE[reclamo.alcance] : 'Sin especificar'}</p>
         {reclamo.estado === 'DUPLICADO' ? (
           <p className="bajada">Ya había un reclamo igual en la zona. Vamos a seguir ese.</p>
         ) : reclamo.cuadrillaId ? (

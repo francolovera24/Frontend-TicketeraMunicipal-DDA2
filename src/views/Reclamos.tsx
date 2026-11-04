@@ -17,6 +17,7 @@ import {
   BARRIOS,
   COLOR_TIPO,
   destinosManuales,
+  ETIQUETA_ALCANCE,
   ETIQUETA_ESTADO,
   ETIQUETA_TIPO,
   formatearFecha,
@@ -395,6 +396,10 @@ export function DetalleReclamo({
           <div>
             <dt>Problema</dt>
             <dd>{ETIQUETA_TIPO[reclamo.tipo]}</dd>
+          </div>
+          <div>
+            <dt>Alcance</dt>
+            <dd>{reclamo.alcance ? ETIQUETA_ALCANCE[reclamo.alcance] : 'Sin especificar'}</dd>
           </div>
           <div>
             <dt>Dirección</dt>

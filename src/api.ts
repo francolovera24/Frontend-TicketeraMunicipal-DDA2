@@ -2,6 +2,8 @@ export type Rol = 'ADMIN' | 'VECINO'
 
 export type TipoReclamo = 'CABLEADO' | 'BACHEO' | 'ALUMBRADO' | 'ARBOLADO' | 'RUIDOS_MOLESTOS'
 
+export type AlcanceReclamo = 'PERSONAL' | 'COLECTIVO'
+
 export type EstadoReclamo =
   | 'NUEVO'
   | 'EN_ANALISIS'
@@ -14,6 +16,7 @@ export type EstadoReclamo =
 export type Reclamo = {
   id: string
   tipo: TipoReclamo
+  alcance: AlcanceReclamo | null
   titulo: string
   descripcion: string
   estado: EstadoReclamo
@@ -223,6 +226,7 @@ export function historialCiudadano(token: string, id: string): Promise<Reclamo[]
 export type AltaReclamo = {
   ciudadanoId: string
   tipo: TipoReclamo
+  alcance: AlcanceReclamo
   titulo: string
   descripcion: string
   direccion: string
@@ -241,6 +245,7 @@ export function crearReclamo(alta: AltaReclamo, correlationId: string, token?: s
   const body: Record<string, unknown> = {
     ciudadanoId: alta.ciudadanoId,
     tipo: alta.tipo,
+    alcance: alta.alcance,
     titulo: alta.titulo,
     descripcion: alta.descripcion,
     direccion: alta.direccion,
