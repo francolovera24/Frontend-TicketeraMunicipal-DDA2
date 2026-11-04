@@ -1,4 +1,9 @@
-import type { EstadoReclamo, TipoReclamo } from './api.ts'
+import type { AlcanceReclamo, EstadoReclamo, TipoReclamo } from './api.ts'
+
+export const ETIQUETA_ALCANCE: Record<AlcanceReclamo, string> = {
+  PERSONAL: 'Personal',
+  COLECTIVO: 'Colectivo',
+}
 
 export const BARRIOS = [
   'Agronomía',
