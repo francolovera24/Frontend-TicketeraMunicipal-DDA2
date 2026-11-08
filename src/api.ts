@@ -35,7 +35,9 @@ export type Reclamo = {
 export type Ciudadano = {
   id: string
   nombre: string
+  apellido: string | null
   contacto: string
+  direccion: string | null
 }
 
 export type Usuario = {
@@ -215,6 +217,17 @@ export function miCiudadano(token: string): Promise<Ciudadano> {
   return pedir<Ciudadano>('/ciudadanos/yo', { token })
 }
 
+export type PerfilEditable = {
+  nombre: string
+  apellido: string | null
+  contacto: string
+  direccion: string | null
+}
+
+export function actualizarMiPerfil(token: string, perfil: PerfilEditable): Promise<Ciudadano> {
+  return pedir<Ciudadano>('/ciudadanos/yo', { method: 'PUT', token, body: perfil })
+}
+
 export function obtenerCiudadano(token: string, id: string): Promise<Ciudadano> {
   return pedir<Ciudadano>(`/ciudadanos/${id}`, { token })
 }
@@ -263,6 +276,33 @@ export function crearReclamo(alta: AltaReclamo, correlationId: string, token?: s
     token,
     headers: { 'X-Correlation-Id': correlationId },
   })
+}
+
+export type BorradorReclamo = {
+  tipo: TipoReclamo | null
+  titulo: string | null
+  descripcion: string | null
+  alcance: AlcanceReclamo | null
+  generadoPorIa: boolean
+}
+
+export function asistirReclamo(texto: string, imagen?: string, imagenTipo?: string): Promise<BorradorReclamo> {
+  const body: Record<string, unknown> = { texto }
+  if (imagen) {
+    body.imagen = imagen
+    body.imagenTipo = imagenTipo
+  }
+  return pedir<BorradorReclamo>('/reclamos/asistir', { method: 'POST', body })
+}
+
+export type GeoResultado = {
+  barrio: string | null
+  lat: number | null
+  lon: number | null
+}
+
+export function geocodificarDireccion(direccion: string): Promise<GeoResultado> {
+  return pedir<GeoResultado>(`/geo/geocodificar${consulta({ direccion })}`)
 }
 
 export function obtenerReclamo(id: string): Promise<Reclamo> {

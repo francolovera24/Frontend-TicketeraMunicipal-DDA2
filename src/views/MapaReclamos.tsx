@@ -2,8 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Reclamo } from '../api.ts'
-import { BARRIOS, COLOR_TIPO, ETIQUETA_ESTADO, ETIQUETA_TIPO, TIPOS } from '../catalogo.ts'
-import { Campo } from '../ui.tsx'
+import { COLOR_TIPO, ETIQUETA_ESTADO, ETIQUETA_TIPO, TIPOS } from '../catalogo.ts'
 
 const CENTRO_CABA: L.LatLngExpression = [-34.61, -58.44]
 
@@ -56,7 +55,6 @@ export function MapaReclamos({
   tipo,
   onTipo,
   barrio,
-  onBarrio,
 }: {
   reclamos: Reclamo[]
   seleccionadoId: string | null
@@ -64,7 +62,6 @@ export function MapaReclamos({
   tipo: string
   onTipo: (tipo: string) => void
   barrio: string
-  onBarrio: (barrio: string) => void
 }) {
   const contenedor = useRef<HTMLDivElement>(null)
   const mapa = useRef<L.Map | null>(null)
@@ -183,28 +180,6 @@ export function MapaReclamos({
       <div className="encabezado-panel">
         <h2>Mapa</h2>
         <p className="meta">{reclamos.length === 1 ? '1 punto' : `${reclamos.length} puntos`}</p>
-      </div>
-      <div className="fila-2">
-        <Campo etiqueta="Problema">
-          <select value={tipo} onChange={(evento) => onTipo(evento.target.value)}>
-            <option value="">Todos</option>
-            {TIPOS.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.etiqueta}
-              </option>
-            ))}
-          </select>
-        </Campo>
-        <Campo etiqueta="Barrio">
-          <select value={barrio} onChange={(evento) => onBarrio(evento.target.value)}>
-            <option value="">Todos</option>
-            {BARRIOS.map((nombre) => (
-              <option key={nombre} value={nombre}>
-                {nombre}
-              </option>
-            ))}
-          </select>
-        </Campo>
       </div>
       <ul className="leyenda">
         {TIPOS.map((item) => (

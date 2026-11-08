@@ -128,3 +128,14 @@ export function formatearFecha(iso: string | null | undefined): string {
 export function recortar(id: string): string {
   return id.slice(0, 8)
 }
+
+/** Compara nombres de barrio sin distinguir acentos, mayúsculas ni puntuación. */
+export function normalizarBarrio(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toUpperCase()
+    .replaceAll('.', '')
+    .replaceAll(/\s+/g, ' ')
+    .trim()
+}

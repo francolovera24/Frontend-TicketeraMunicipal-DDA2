@@ -22,8 +22,10 @@ import {
   ETIQUETA_TIPO,
   formatearFecha,
 } from '../catalogo.ts'
-import { Aviso, Campo, FotoReclamo, MiniFoto, PastillaEstado } from '../ui.tsx'
+import { Aviso, Campo, Encabezado, Estadistica, FotoReclamo, Icono, MiniFoto, Panel, PastillaEstado } from '../ui.tsx'
 import { MapaReclamos } from './MapaReclamos.tsx'
+
+type Vista = 'tablero' | 'mapa' | 'lista'
 
 const COLUMNAS_KANBAN: EstadoReclamo[] = [
   'NUEVO',
@@ -54,17 +56,15 @@ export function PanelReclamos({
   const [tipo, setTipo] = useState('')
   const [texto, setTexto] = useState('')
   const [estado, setEstado] = useState('')
-  const [enVivo, setEnVivo] = useState(true)
+  const [vista, setVista] = useState<Vista>('tablero')
   const [reclamos, setReclamos] = useState<Reclamo[]>([])
   const [recien, setRecien] = useState<Set<string>>(new Set())
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(reclamoInicial)
   const detalleRef = useRef<HTMLElement>(null)
   const [error, setError] = useState<string | null>(null)
-  const [cargando, setCargando] = useState(false)
   const conocidos = useRef<Set<string> | null>(null)
 
   const cargar = useCallback(async () => {
-    setCargando(true)
     try {
       const lista = await listarReclamos(token, barrio || undefined)
       const ids = new Set(lista.map((item) => item.id))
@@ -84,8 +84,6 @@ export function PanelReclamos({
     } catch (fallo) {
       if (esNoAutorizado(fallo)) onExpirar()
       setError(textoError(fallo))
-    } finally {
-      setCargando(false)
     }
   }, [token, barrio, onExpirar])
 
@@ -101,10 +99,9 @@ export function PanelReclamos({
   }, [reclamoInicial])
 
   useEffect(() => {
-    if (!enVivo) return
     const timer = window.setInterval(() => void cargar(), 4000)
     return () => window.clearInterval(timer)
-  }, [enVivo, cargar])
+  }, [cargar])
 
   const visibles = reclamos.filter((reclamo) => {
     if (tipo && reclamo.tipo !== tipo) return false
@@ -130,125 +127,200 @@ export function PanelReclamos({
     porColumna.get(reclamo.estado)?.push(reclamo)
   }
 
+  const urgentes = reclamos.filter((item) => item.urgente && item.estado !== 'RESUELTO' && item.estado !== 'RECHAZADO').length
+  const nuevos = reclamos.filter((item) => item.estado === 'NUEVO').length
+  const resueltos = reclamos.filter((item) => item.estado === 'RESUELTO').length
+
   return (
     <div className="columna">
-      <MapaReclamos
-        reclamos={enMapa}
-        seleccionadoId={seleccionadoId}
-        onElegir={setSeleccionadoId}
-        tipo={tipo}
-        onTipo={setTipo}
-        barrio={barrio}
-        onBarrio={(valor) => {
-          conocidos.current = null
-          setBarrio(valor)
-        }}
-      />
+      <Encabezado titulo="Reclamos" descripcion="Filtrá, priorizá y gestioná el estado de cada reclamo." />
+
+      <div className="stats-fila">
+        <Estadistica etiqueta="Total" valor={reclamos.length} />
+        <Estadistica etiqueta="Nuevos" valor={nuevos} tono="acento" />
+        <Estadistica etiqueta="Urgentes" valor={urgentes} tono="error" />
+        <Estadistica etiqueta="Resueltos" valor={resueltos} tono="ok" />
+      </div>
 
       <section className="tarjeta">
-        <div className="encabezado-panel">
-          <h2>Reclamos</h2>
-          <label className="check">
-            <input type="checkbox" checked={enVivo} onChange={(evento) => setEnVivo(evento.target.checked)} />
-            Se actualiza solo
-          </label>
+        <div className="toolbar-filtros">
+            <Campo etiqueta="Barrio">
+              <select
+                value={barrio}
+                onChange={(evento) => {
+                  conocidos.current = null
+                  setBarrio(evento.target.value)
+                }}
+              >
+                <option value="">Todos</option>
+                {BARRIOS.map((nombre) => (
+                  <option key={nombre} value={nombre}>
+                    {nombre}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo etiqueta="Problema">
+              <select value={tipo} onChange={(evento) => setTipo(evento.target.value as TipoReclamo | '')}>
+                <option value="">Todos</option>
+                {Object.entries(ETIQUETA_TIPO).map(([id, etiqueta]) => (
+                  <option key={id} value={id}>
+                    {etiqueta}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo etiqueta="Estado">
+              <select value={estado} onChange={(evento) => setEstado(evento.target.value)}>
+                <option value="">Todos</option>
+                {Object.entries(ETIQUETA_ESTADO).map(([id, etiqueta]) => (
+                  <option key={id} value={id}>
+                    {etiqueta}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo etiqueta="Buscar" hint="Título, dirección o texto." className="campo-buscar">
+              <input value={texto} onChange={(evento) => setTexto(evento.target.value)} placeholder="Buscar…" />
+            </Campo>
         </div>
-        <p className="bajada">Filtrá por barrio, problema o estado. Con la actualización automática ves los reclamos nuevos al toque.</p>
-        <div className="fila-2">
-          <Campo etiqueta="Barrio">
-            <select
-              value={barrio}
-              onChange={(evento) => {
-                conocidos.current = null
-                setBarrio(evento.target.value)
-              }}
-            >
-              <option value="">Todos</option>
-              {BARRIOS.map((nombre) => (
-                <option key={nombre} value={nombre}>
-                  {nombre}
-                </option>
-              ))}
-            </select>
-          </Campo>
-          <Campo etiqueta="Problema">
-            <select value={tipo} onChange={(evento) => setTipo(evento.target.value as TipoReclamo | '')}>
-              <option value="">Todos</option>
-              {Object.entries(ETIQUETA_TIPO).map(([id, etiqueta]) => (
-                <option key={id} value={id}>
-                  {etiqueta}
-                </option>
-              ))}
-            </select>
-          </Campo>
-          <Campo etiqueta="Estado">
-            <select value={estado} onChange={(evento) => setEstado(evento.target.value)}>
-              <option value="">Todos</option>
-              {Object.entries(ETIQUETA_ESTADO).map(([id, etiqueta]) => (
-                <option key={id} value={id}>
-                  {etiqueta}
-                </option>
-              ))}
-            </select>
-          </Campo>
-        </div>
-        <Campo etiqueta="Buscar" hint="Título, dirección o texto.">
-          <input value={texto} onChange={(evento) => setTexto(evento.target.value)} />
-        </Campo>
-        <button className="btn btn-secundario" type="button" onClick={() => void cargar()} disabled={cargando}>
-          {cargando ? 'Actualizando…' : 'Actualizar'}
-        </button>
         {error ? <Aviso tono="error">{error}</Aviso> : null}
       </section>
 
-      <section className="tarjeta tarjeta-tablero">
-        <h2>Tablero</h2>
-        <p className="bajada">Elegí un reclamo para ver el detalle y cambiar su estado.</p>
-        {visibles.length === 0 ? (
-          <p className="bajada">No hay reclamos con esos filtros.</p>
-        ) : (
-          <div className="tablero-kanban">
-            {COLUMNAS_KANBAN.map((columnaEstado) => {
-              const items = porColumna.get(columnaEstado) ?? []
-              return (
-                <div className="columna-kanban" key={columnaEstado}>
-                  <div className={`columna-kanban__cabecera estado-${columnaEstado}`}>
-                    <span>{ETIQUETA_ESTADO[columnaEstado]}</span>
-                    <span className="columna-kanban__contador">{items.length}</span>
-                  </div>
-                  <div className="columna-kanban__cuerpo">
-                    {items.map((reclamo) => (
-                      <button
-                        key={reclamo.id}
-                        type="button"
-                        style={{ borderLeftColor: COLOR_TIPO[reclamo.tipo] }}
-                        className={`tarjeta-kanban ${reclamo.id === seleccionadoId ? 'activo' : ''} ${recien.has(reclamo.id) ? 'recien' : ''}`}
-                        onClick={() => setSeleccionadoId(reclamo.id)}
-                      >
-                        <span className="fila-meta">
-                          {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
-                          {recien.has(reclamo.id) ? <span className="pastilla nuevo">Recién llegado</span> : null}
-                        </span>
-                        {reclamo.tieneImagen ? <MiniFoto id={reclamo.id} /> : null}
-                        <span className="tarjeta-kanban__titulo">{reclamo.titulo.trim() || reclamo.descripcion.trim()}</span>
-                        {reclamo.descripcion.trim() && reclamo.descripcion.trim() !== reclamo.titulo.trim() ? (
-                          <small className="tarjeta-kanban__relato">{reclamo.descripcion}</small>
-                        ) : null}
-                        <small>
-                          {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · score {reclamo.scoreCriticidad}
-                        </small>
-                        <small>{formatearFecha(reclamo.fechaCreacion)}</small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
+      <div className="vista-switch-barra">
+        <div className="vista-switch" role="tablist" aria-label="Vista de reclamos">
+          <button type="button" role="tab" aria-selected={vista === 'tablero'} className={vista === 'tablero' ? 'activo' : ''} onClick={() => setVista('tablero')}>
+            <Icono nombre="tablero" /> Tablero
+          </button>
+          <button type="button" role="tab" aria-selected={vista === 'mapa'} className={vista === 'mapa' ? 'activo' : ''} onClick={() => setVista('mapa')}>
+            <Icono nombre="mapa" /> Mapa
+          </button>
+          <button type="button" role="tab" aria-selected={vista === 'lista'} className={vista === 'lista' ? 'activo' : ''} onClick={() => setVista('lista')}>
+            <Icono nombre="lista" /> Lista
+          </button>
+        </div>
+      </div>
 
-      <section className="tarjeta" ref={detalleRef}>
+      {vista === 'mapa' ? (
+        <MapaReclamos
+          reclamos={enMapa}
+          seleccionadoId={seleccionadoId}
+          onElegir={setSeleccionadoId}
+          tipo={tipo}
+          onTipo={setTipo}
+          barrio={barrio}
+        />
+      ) : null}
+
+      {vista === 'tablero' ? (
+        <section className="tarjeta tarjeta-tablero">
+          <h2>Tablero</h2>
+          <p className="bajada">Elegí un reclamo para ver el detalle y cambiar su estado.</p>
+          {visibles.length === 0 ? (
+            <p className="bajada">No hay reclamos con esos filtros.</p>
+          ) : (
+            <div className="tablero-kanban">
+              {COLUMNAS_KANBAN.map((columnaEstado) => {
+                const items = porColumna.get(columnaEstado) ?? []
+                return (
+                  <div className="columna-kanban" key={columnaEstado}>
+                    <div className={`columna-kanban__cabecera estado-${columnaEstado}`}>
+                      <span>{ETIQUETA_ESTADO[columnaEstado]}</span>
+                      <span className="columna-kanban__contador">{items.length}</span>
+                    </div>
+                    <div className="columna-kanban__cuerpo">
+                      {items.map((reclamo) => (
+                        <button
+                          key={reclamo.id}
+                          type="button"
+                          style={{ borderLeftColor: COLOR_TIPO[reclamo.tipo] }}
+                          className={`tarjeta-kanban ${reclamo.id === seleccionadoId ? 'activo' : ''} ${recien.has(reclamo.id) ? 'recien' : ''}`}
+                          onClick={() => setSeleccionadoId(reclamo.id)}
+                        >
+                          <span className="fila-meta">
+                            {reclamo.urgente ? <span className="pastilla urgente">Urgente</span> : null}
+                            {recien.has(reclamo.id) ? <span className="pastilla nuevo">Recién llegado</span> : null}
+                          </span>
+                          {reclamo.tieneImagen ? <MiniFoto id={reclamo.id} /> : null}
+                          <span className="tarjeta-kanban__titulo">{reclamo.titulo.trim() || reclamo.descripcion.trim()}</span>
+                          {reclamo.descripcion.trim() && reclamo.descripcion.trim() !== reclamo.titulo.trim() ? (
+                            <small className="tarjeta-kanban__relato">{reclamo.descripcion}</small>
+                          ) : null}
+                          <small>
+                            {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · score {reclamo.scoreCriticidad}
+                          </small>
+                          <small>{formatearFecha(reclamo.fechaCreacion)}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {vista === 'lista' ? (
+        <section className="tarjeta">
+          <h2>Lista</h2>
+          <p className="bajada">Ordenados por criticidad. Hacé clic en una fila para ver el detalle.</p>
+          {visibles.length === 0 ? (
+            <p className="bajada">No hay reclamos con esos filtros.</p>
+          ) : (
+            <table className="tabla">
+              <thead>
+                <tr>
+                  <th>Reclamo</th>
+                  <th>Problema</th>
+                  <th>Barrio</th>
+                  <th>Estado</th>
+                  <th>Score</th>
+                  <th>Ingreso</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...visibles]
+                  .sort((a, b) => b.scoreCriticidad - a.scoreCriticidad)
+                  .map((reclamo) => (
+                    <tr
+                      key={reclamo.id}
+                      className="fila-clic"
+                      tabIndex={0}
+                      onClick={() => setSeleccionadoId(reclamo.id)}
+                      onKeyDown={(evento) => {
+                        if (evento.key === 'Enter' || evento.key === ' ') {
+                          evento.preventDefault()
+                          setSeleccionadoId(reclamo.id)
+                        }
+                      }}
+                    >
+                      <td>
+                        <strong>{reclamo.titulo.trim() || reclamo.descripcion.trim()}</strong>
+                        {reclamo.urgente ? ' · urgente' : ''}
+                      </td>
+                      <td>{ETIQUETA_TIPO[reclamo.tipo]}</td>
+                      <td>{reclamo.barrio}</td>
+                      <td>
+                        <PastillaEstado estado={reclamo.estado} />
+                      </td>
+                      <td>{reclamo.scoreCriticidad}</td>
+                      <td>{formatearFecha(reclamo.fechaCreacion)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      ) : null}
+
+      <span ref={detalleRef} />
+      <Panel
+        abierto={seleccionado !== null}
+        onCerrar={() => setSeleccionadoId(null)}
+        titulo="Detalle del reclamo"
+        ancho="l"
+      >
         {seleccionado ? (
           <DetalleReclamo
             token={token}
@@ -261,13 +333,8 @@ export function PanelReclamos({
             onVerCiudadano={onVerCiudadano}
             onVerSoap={onVerSoap}
           />
-        ) : (
-          <>
-            <h2>Detalle</h2>
-            <p className="bajada">Elegí un reclamo del tablero para ver qué pasó y quién lo cargó.</p>
-          </>
-        )}
-      </section>
+        ) : null}
+      </Panel>
     </div>
   )
 }

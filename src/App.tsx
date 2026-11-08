@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { comprobarBackend } from './api.ts'
 import { FormularioCuenta } from './cuenta.tsx'
 import { borrarSesion, leerSesion, type Sesion } from './sesion.ts'
+import { Campo, Icono, Panel } from './ui.tsx'
 import { VistaMunicipal } from './views/Municipal.tsx'
 import { VistaVecino } from './views/Vecino.tsx'
 
@@ -14,6 +15,7 @@ function vistaDe(sesion: Sesion): Vista {
 export default function App() {
   const [sesion, setSesion] = useState<Sesion | null>(() => leerSesion())
   const [backend, setBackend] = useState<'comprobando' | 'ok' | 'caido'>('comprobando')
+  const [perfilAbierto, setPerfilAbierto] = useState(false)
 
   useEffect(() => {
     let cancelado = false
@@ -42,21 +44,20 @@ export default function App() {
   const vista: Vista | null = sesion ? vistaDe(sesion) : null
 
   return (
-    <div className="pagina" data-vista={vista ?? 'vecino'}>
+    <div className="pagina" data-vista={vista ?? 'cuenta'}>
       <header className="barra">
         <div>
           <p className="marca">Ticketera municipal</p>
-          <p className="bajada marca-sub">Reclamos de infraestructura · CABA</p>
+          <p className="bajada marca-sub">Gestión de reclamos de infraestructura urbana</p>
         </div>
         <div className="sesion">
           {sesion ? (
             <>
-              <span className="quien">
-                {sesion.email}
-                <small>{vista === 'municipal' ? 'Panel municipal' : 'Vecino'}</small>
-              </span>
+              <button type="button" className="btn btn-secundario" onClick={() => setPerfilAbierto(true)}>
+                <Icono nombre="vecinos" /> Mi perfil
+              </button>
               <button type="button" className="btn btn-secundario" onClick={salir}>
-                Salir
+                <Icono nombre="salir" /> Salir
               </button>
             </>
           ) : null}
@@ -79,13 +80,34 @@ export default function App() {
           </div>
         ) : null}
 
-        {vista === 'vecino' && sesion ? <VistaVecino sesion={sesion} /> : null}
+        {vista === 'vecino' && sesion ? (
+          <VistaVecino
+            sesion={sesion}
+            perfilAbierto={perfilAbierto}
+            onCerrarPerfil={() => setPerfilAbierto(false)}
+          />
+        ) : null}
 
-        {vista === 'municipal' && sesion ? <VistaMunicipal sesion={sesion} onExpirar={salir} /> : null}
+        {vista === 'municipal' && sesion ? (
+          <>
+            <VistaMunicipal sesion={sesion} onExpirar={salir} />
+            <Panel abierto={perfilAbierto} onCerrar={() => setPerfilAbierto(false)} titulo="Mi perfil">
+              <div className="formulario">
+                <p className="bajada">Datos de tu cuenta municipal.</p>
+                <Campo etiqueta="Email">
+                  <input value={sesion.email} disabled readOnly />
+                </Campo>
+                <Campo etiqueta="Rol">
+                  <input value="Administrador" disabled readOnly />
+                </Campo>
+              </div>
+            </Panel>
+          </>
+        ) : null}
       </main>
 
       <footer className="pie">
-        <span>Reclamos de la Ciudad de Buenos Aires.</span>
+        <span>Sistema de gestión de reclamos de infraestructura urbana.</span>
       </footer>
     </div>
   )

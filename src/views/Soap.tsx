@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { consultarEstadoSoap, textoError, type EstadoReclamo, type TipoReclamo } from '../api.ts'
 import { ETIQUETA_ESTADO, ETIQUETA_TIPO, formatearFecha } from '../catalogo.ts'
-import { Aviso, Campo, PastillaEstado } from '../ui.tsx'
+import { Aviso, Campo, Encabezado, PastillaEstado } from '../ui.tsx'
 
 type EstadoSoap = {
   id: string
@@ -79,9 +79,9 @@ export function PanelSoap({ idInicial = '' }: { idInicial?: string }) {
   const leido = xml ? leerEstado(xml) : null
 
   return (
-    <section className="tarjeta formulario">
-      <h2>Estado</h2>
-      <p className="bajada">Pegá el número de seguimiento para ver en qué está el reclamo.</p>
+    <div className="columna">
+      <Encabezado titulo="Consultar estado de un reclamo" descripcion="Pegá un número de seguimiento para ver en qué está, tal como lo ve un sistema externo conectado." />
+      <section className="tarjeta formulario">
       <form onSubmit={(evento) => void consultar(evento)}>
         <Campo etiqueta="Número de seguimiento">
           <input
@@ -143,6 +143,7 @@ export function PanelSoap({ idInicial = '' }: { idInicial?: string }) {
       {leido?.estado?.reclamoOriginalId ? (
         <p className="bajada">Ya había un reclamo igual. Se sigue ese.</p>
       ) : null}
-    </section>
+      </section>
+    </div>
   )
 }

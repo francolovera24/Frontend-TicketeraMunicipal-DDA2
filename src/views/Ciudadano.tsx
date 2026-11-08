@@ -8,7 +8,7 @@ import {
   type Reclamo,
 } from '../api.ts'
 import { ETIQUETA_TIPO, formatearFecha } from '../catalogo.ts'
-import { Aviso, PastillaEstado } from '../ui.tsx'
+import { Aviso, Encabezado, Panel, PastillaEstado } from '../ui.tsx'
 import { DetalleReclamo } from './Reclamos.tsx'
 
 function textoReclamo(reclamo: Reclamo): string {
@@ -65,9 +65,8 @@ export function PanelCiudadano({
 
   return (
     <div className="columna">
+      <Encabezado titulo="Vecinos" descripcion="Buscá un vecino desde un reclamo con el botón Ver vecino." />
       <section className="tarjeta">
-        <h2>Vecino</h2>
-        {!idInicial ? <p className="bajada">Abrilo desde un reclamo, con el botón Ver vecino.</p> : null}
         {ocupado ? <p className="bajada">Cargando…</p> : null}
         {error ? <Aviso tono="error">{error}</Aviso> : null}
         {ciudadano ? (
@@ -105,8 +104,8 @@ export function PanelCiudadano({
         ) : null}
       </section>
 
-      {seleccionado && ciudadano ? (
-        <section className="tarjeta">
+      <Panel abierto={seleccionado !== null && ciudadano !== null} onCerrar={() => setSeleccionadoId(null)} titulo="Detalle del reclamo" ancho="l">
+        {seleccionado && ciudadano ? (
           <DetalleReclamo
             token={token}
             reclamo={seleccionado}
@@ -117,8 +116,8 @@ export function PanelCiudadano({
             onVerZona={onVerZona}
             onVerSoap={onVerSoap}
           />
-        </section>
-      ) : null}
+        ) : null}
+      </Panel>
     </div>
   )
 }

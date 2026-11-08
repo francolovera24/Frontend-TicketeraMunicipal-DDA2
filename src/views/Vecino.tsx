@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  actualizarMiPerfil,
   ApiError,
+  asistirReclamo,
   crearCiudadano,
   crearReclamo,
+  geocodificarDireccion,
   historialCiudadano,
   miCiudadano,
   obtenerReclamo,
@@ -13,9 +16,9 @@ import {
   type Reclamo,
   type TipoReclamo,
 } from '../api.ts'
-import { BARRIOS, ETIQUETA_ALCANCE, ETIQUETA_TIPO, formatearFecha, TIPOS } from '../catalogo.ts'
+import { BARRIOS, ETIQUETA_ALCANCE, ETIQUETA_TIPO, formatearFecha, normalizarBarrio, TIPOS } from '../catalogo.ts'
 import type { Sesion } from '../sesion.ts'
-import { Aviso, Campo, Copiar, FotoReclamo, MiniFoto, PastillaEstado } from '../ui.tsx'
+import { Aviso, Campo, Copiar, Encabezado, Estadistica, FotoReclamo, Icono, MiniFoto, Panel, PastillaEstado } from '../ui.tsx'
 
 const CLAVE_FICHA = 'ticketera.ficha'
 const CLAVE_RECLAMOS = 'ticketera.reclamos'
@@ -90,7 +93,17 @@ const ESTADO_VECINO: Record<EstadoReclamo, string> = {
   DUPLICADO: 'Ya estaba cargado',
 }
 
-export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avisoAdmin?: boolean }) {
+export function VistaVecino({
+  sesion,
+  avisoAdmin,
+  perfilAbierto,
+  onCerrarPerfil,
+}: {
+  sesion: Sesion | null
+  avisoAdmin?: boolean
+  perfilAbierto: boolean
+  onCerrarPerfil: () => void
+}) {
   const [nombre, setNombre] = useState(() => (sesion ? '' : (leerFichaLocal()?.nombre ?? '')))
   const [contacto, setContacto] = useState(() => (sesion ? '' : (leerFichaLocal()?.contacto ?? '')))
   const [ficha, setFicha] = useState<Ciudadano | null>(() => (sesion ? null : leerFichaLocal()))
@@ -111,7 +124,25 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
   const [seguimiento, setSeguimiento] = useState<Reclamo | null>(null)
   const [vigilarId, setVigilarId] = useState<string | null>(null)
 
-  const detalleRef = useRef<HTMLElement>(null)
+  const [formAbierto, setFormAbierto] = useState(false)
+  const [seguimientoAbierto, setSeguimientoAbierto] = useState(false)
+  const [buscarAbierto, setBuscarAbierto] = useState(false)
+
+  const [perfilNombre, setPerfilNombre] = useState('')
+  const [perfilApellido, setPerfilApellido] = useState('')
+  const [perfilContacto, setPerfilContacto] = useState('')
+  const [perfilDireccion, setPerfilDireccion] = useState('')
+  const [perfilGuardando, setPerfilGuardando] = useState(false)
+  const [perfilError, setPerfilError] = useState<string | null>(null)
+  const [perfilOk, setPerfilOk] = useState(false)
+
+  const [pasoForm, setPasoForm] = useState<'redactar' | 'confirmar'>('redactar')
+  const [relato, setRelato] = useState('')
+  const [analizando, setAnalizando] = useState(false)
+  const [errorAnalisis, setErrorAnalisis] = useState<string | null>(null)
+  const [avisoIa, setAvisoIa] = useState<{ ok: boolean; mensaje: string } | null>(null)
+  const [avisoDireccion, setAvisoDireccion] = useState<string | null>(null)
+
   const [historial, setHistorial] = useState<Reclamo[]>([])
   const [consultaId, setConsultaId] = useState('')
   const [consulta, setConsulta] = useState<Reclamo | null>(null)
@@ -225,9 +256,99 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
   }, [vigilarId])
 
   useEffect(() => {
-    if (!seguimiento) return
-    detalleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [seguimiento?.id])
+    setAvisoDireccion(null)
+    const direccionLimpia = direccion.trim()
+    if (!barrio || direccionLimpia.length < 6) return
+    let cancelado = false
+    const timer = window.setTimeout(() => {
+      void geocodificarDireccion(direccionLimpia)
+        .then((geo) => {
+          if (cancelado || !geo.barrio) return
+          if (normalizarBarrio(geo.barrio) !== normalizarBarrio(barrio)) {
+            setAvisoDireccion(
+              `Esa dirección parece estar en ${geo.barrio}, no en ${barrio}. Revisala o elegí el barrio correcto.`,
+            )
+          }
+        })
+        .catch(() => undefined)
+    }, 900)
+    return () => {
+      cancelado = true
+      window.clearTimeout(timer)
+    }
+  }, [direccion, barrio])
+
+  useEffect(() => {
+    if (!perfilAbierto) return
+    setPerfilNombre(ficha?.nombre ?? nombre)
+    setPerfilApellido(ficha?.apellido ?? '')
+    setPerfilContacto(ficha?.contacto ?? contacto)
+    setPerfilDireccion(ficha?.direccion ?? '')
+    setPerfilError(null)
+    setPerfilOk(false)
+    // Solo al abrir: no queremos pisar lo que el vecino está tipeando con cada re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perfilAbierto])
+
+  async function guardarPerfil(evento: React.FormEvent) {
+    evento.preventDefault()
+    if (!sesion) return
+    setPerfilError(null)
+    setPerfilOk(false)
+    setPerfilGuardando(true)
+    try {
+      const actualizado = await actualizarMiPerfil(sesion.token, {
+        nombre: perfilNombre.trim(),
+        apellido: perfilApellido.trim() || null,
+        contacto: perfilContacto.trim(),
+        direccion: perfilDireccion.trim() || null,
+      })
+      setFicha(actualizado)
+      setNombre(actualizado.nombre)
+      setContacto(actualizado.contacto)
+      setPerfilOk(true)
+    } catch (fallo) {
+      setPerfilError(textoError(fallo))
+    } finally {
+      setPerfilGuardando(false)
+    }
+  }
+
+  async function analizar(evento: React.FormEvent) {
+    evento.preventDefault()
+    setErrorAnalisis(null)
+    if (!relato.trim()) {
+      setErrorAnalisis('Contanos qué está pasando.')
+      return
+    }
+    setAnalizando(true)
+    try {
+      const borrador = await asistirReclamo(relato.trim(), foto?.base64, foto?.tipo)
+      setTipo(borrador.tipo ?? tipo)
+      setTitulo(borrador.titulo ?? '')
+      setDescripcion(borrador.descripcion ?? relato.trim())
+      setAlcance(borrador.alcance ?? '')
+      setAvisoIa(
+        borrador.generadoPorIa
+          ? { ok: true, mensaje: 'Esto es lo que entendimos. Revisalo y corregí lo que haga falta antes de enviar.' }
+          : { ok: false, mensaje: 'No pudimos usar el asistente ahora. Completá o corregí los campos a mano.' },
+      )
+      setPasoForm('confirmar')
+    } catch (fallo) {
+      setErrorAnalisis(textoError(fallo))
+    } finally {
+      setAnalizando(false)
+    }
+  }
+
+  function saltarAsistente() {
+    setTitulo('')
+    setDescripcion(relato.trim())
+    setAlcance('')
+    setAvisoIa(null)
+    setErrorAnalisis(null)
+    setPasoForm('confirmar')
+  }
 
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
@@ -274,6 +395,11 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
       setVigilarId(reclamo.id)
       if (!sesion) recordarReclamo(reclamo.id)
       setHistorial((actual) => [reclamo, ...actual.filter((item) => item.id !== reclamo.id)])
+      setFormAbierto(false)
+      setSeguimientoAbierto(true)
+      setPasoForm('redactar')
+      setRelato('')
+      setAvisoIa(null)
       setAlcance('')
       setTitulo('')
       setDescripcion('')
@@ -300,190 +426,266 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
     }
   }
 
+  const enCurso = historial.filter(
+    (item) => item.estado !== 'RESUELTO' && item.estado !== 'RECHAZADO' && item.estado !== 'DUPLICADO',
+  ).length
+  const resueltos = historial.filter((item) => item.estado === 'RESUELTO').length
+
   return (
-    <div className="grilla-2">
-      <form className="tarjeta formulario" onSubmit={(evento) => void enviar(evento)}>
-        <h2>Nuevo reclamo</h2>
+    <div className="columna">
+      <section className="tarjeta hero-vecino">
+        <h1>{nombre.trim() ? `Hola, ${nombre.trim().split(' ')[0]}` : 'Hola, vecino'}</h1>
         <p className="bajada">
           {avisoAdmin
             ? 'Desde acá podés cargar un reclamo como lo haría un vecino.'
-            : 'Contanos qué está pasando y dónde. Después vas a poder seguir el estado desde esta misma pantalla.'}
+            : 'Contanos qué está pasando y dónde. Después vas a poder seguir el estado desde acá.'}
         </p>
-
-        {cargandoFicha ? <p className="bajada">Cargando tus datos…</p> : null}
-
-        <Campo etiqueta="Nombre">
-          <input
-            required
-            maxLength={150}
-            value={nombre}
-            onChange={(evento) => setNombre(evento.target.value)}
-            disabled={Boolean(sesion && ficha)}
-          />
-        </Campo>
-        <Campo etiqueta="Contacto" hint="Un mail o un teléfono para poder avisarte.">
-          <input
-            required
-            maxLength={150}
-            value={contacto}
-            onChange={(evento) => setContacto(evento.target.value)}
-            disabled={Boolean(sesion && ficha)}
-          />
-        </Campo>
-        {sesion && sinFicha ? (
-          <p className="bajada">La primera vez guardamos tu nombre y contacto junto con el reclamo.</p>
-        ) : null}
-
-        <Campo etiqueta="Problema">
-          <select value={tipo} onChange={(evento) => setTipo(evento.target.value as TipoReclamo)}>
-            {TIPOS.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.etiqueta}
-              </option>
-            ))}
-          </select>
-        </Campo>
-        <Campo etiqueta="¿A quién afecta el problema?">
-          <select
-            required
-            value={alcance}
-            onChange={(evento) => setAlcance(evento.target.value as AlcanceReclamo | '')}
-          >
-            <option value="">Seleccioná una opción</option>
-            <option value="PERSONAL">Personal: solo me afecta a mí</option>
-            <option value="COLECTIVO">Colectivo: afecta a varias personas</option>
-          </select>
-        </Campo>
-        <Campo etiqueta="Título" hint="Un resumen corto.">
-          <input
-            required
-            maxLength={150}
-            value={titulo}
-            onChange={(evento) => setTitulo(evento.target.value)}
-            placeholder="Cable colgando sobre la vereda"
-          />
-        </Campo>
-        <Campo etiqueta="Qué está pasando">
-          <textarea
-            required
-            maxLength={1000}
-            rows={4}
-            value={descripcion}
-            onChange={(evento) => setDescripcion(evento.target.value)}
-            placeholder="Cable pelado colgando desde el poste, a metros de la esquina"
-          />
-        </Campo>
-        <Campo etiqueta="Foto" hint="Opcional. Gemma la usa para ver el daño y afinar el análisis.">
-          <input
-            ref={fotoInput}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(evento) => {
-              const archivo = evento.target.files?.[0]
-              if (!archivo) return
-              void prepararFoto(archivo)
-                .then((lista) => {
-                  setFoto((anterior) => {
-                    if (anterior) URL.revokeObjectURL(anterior.vista)
-                    return lista
-                  })
-                  setError(null)
-                })
-                .catch((fallo: unknown) => {
-                  setError(fallo instanceof Error ? fallo.message : 'No se pudo leer la foto.')
-                })
-            }}
-          />
-        </Campo>
-        {foto ? (
-          <div className="foto-elegida">
-            <img src={foto.vista} alt="Vista previa de la foto" />
-            <div>
-              <p className={descripcion.trim() ? 'foto-elegida-texto' : 'bajada'}>
-                {descripcion.trim() || 'Contá arriba qué se ve en la foto.'}
-              </p>
-              <button
-                type="button"
-                className="btn btn-texto"
-                onClick={() => {
-                  URL.revokeObjectURL(foto.vista)
-                  setFoto(null)
-                  if (fotoInput.current) fotoInput.current.value = ''
-                }}
-              >
-                Quitar foto
-              </button>
-            </div>
+        {historial.length > 0 ? (
+          <div className="stats-fila">
+            <Estadistica etiqueta="Reclamos" valor={historial.length} />
+            <Estadistica etiqueta="En curso" valor={enCurso} tono="acento" />
+            <Estadistica etiqueta="Resueltos" valor={resueltos} tono="ok" />
           </div>
         ) : null}
-        <Campo etiqueta="Dirección">
-          <input
-            required
-            maxLength={255}
-            value={direccion}
-            onChange={(evento) => setDireccion(evento.target.value)}
-            placeholder="Av. Santa Fe 3200"
-          />
-        </Campo>
-        <Campo etiqueta="Barrio" hint="Si no lo sabés, lo completamos con la dirección.">
-          <select value={barrio} onChange={(evento) => setBarrio(evento.target.value)}>
-            <option value="">No estoy seguro</option>
-            {BARRIOS.map((nombreBarrio) => (
-              <option key={nombreBarrio} value={nombreBarrio}>
-                {nombreBarrio}
-              </option>
-            ))}
-          </select>
-        </Campo>
-        {error ? <Aviso tono="error">{error}</Aviso> : null}
-        <button className="btn btn-primario" type="submit" disabled={enviando || cargandoFicha}>
-          {enviando ? 'Enviando…' : 'Enviar reclamo'}
-        </button>
-      </form>
+        <div className="hero-vecino__acciones">
+          <button
+            className="btn btn-primario"
+            type="button"
+            onClick={() => {
+              setPasoForm('redactar')
+              setFormAbierto(true)
+            }}
+          >
+            <Icono nombre="nuevo" /> Reportar un problema
+          </button>
+          <button className="btn btn-secundario" type="button" onClick={() => setBuscarAbierto(true)}>
+            <Icono nombre="buscar" /> Tengo un número de seguimiento
+          </button>
+        </div>
+      </section>
 
-      <div className="columna">
-        {seguimiento ? (
-          <article className="tarjeta" ref={detalleRef}>
-            <DetalleVecino reclamo={seguimiento} />
-          </article>
+      <section className="tarjeta">
+        <Encabezado
+          titulo="Mis reclamos"
+          descripcion={historial.length > 0 ? 'Tocá uno para ver en qué está.' : undefined}
+        />
+        {historial.length === 0 ? (
+          <p className="bajada">Todavía no enviaste ninguno.</p>
         ) : (
-          <article className="tarjeta">
-            <h2>Seguimiento</h2>
-            <p className="bajada">Cuando envíes un reclamo, acá vas a ver en qué está.</p>
-          </article>
+          <ul className="lista-simple">
+            {historial.map((reclamo) => (
+              <li key={reclamo.id}>
+                <button
+                  type="button"
+                  className="item-lista"
+                  onClick={() => {
+                    setSeguimiento(reclamo)
+                    setSeguimientoAbierto(true)
+                  }}
+                >
+                  <PastillaEstado estado={reclamo.estado} texto={ESTADO_VECINO[reclamo.estado]} />
+                  {reclamo.tieneImagen ? <MiniFoto id={reclamo.id} /> : null}
+                  <span className="item-lista-titulo">{reclamo.titulo.trim() || reclamo.descripcion.trim()}</span>
+                  {reclamo.descripcion.trim() && reclamo.descripcion.trim() !== reclamo.titulo.trim() ? (
+                    <small>{reclamo.descripcion}</small>
+                  ) : null}
+                  <small>
+                    {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · {formatearFecha(reclamo.fechaCreacion)}
+                  </small>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
+      </section>
 
-        <article className="tarjeta">
-          <h2>Mis reclamos</h2>
-          {historial.length === 0 ? (
-            <p className="bajada">Todavía no enviaste ninguno.</p>
-          ) : (
-            <ul className="lista-simple">
-              {historial.map((reclamo) => (
-                <li key={reclamo.id}>
+      <Panel abierto={formAbierto} onCerrar={() => setFormAbierto(false)} titulo="Nuevo reclamo" ancho="l">
+        {pasoForm === 'redactar' ? (
+          <form className="formulario" onSubmit={(evento) => void analizar(evento)}>
+            <p className="bajada">
+              {avisoAdmin
+                ? 'Desde acá podés cargar un reclamo como lo haría un vecino.'
+                : 'Contanos qué está pasando, con tus palabras. Un asistente ordena los datos y te los muestra antes de enviarlos.'}
+            </p>
+            {cargandoFicha ? <p className="bajada">Cargando tus datos…</p> : null}
+
+            <Campo etiqueta="Nombre">
+              <input
+                required
+                maxLength={150}
+                value={nombre}
+                onChange={(evento) => setNombre(evento.target.value)}
+                disabled={Boolean(sesion && ficha)}
+              />
+            </Campo>
+            <Campo etiqueta="Contacto" hint="Un mail o un teléfono para poder avisarte.">
+              <input
+                required
+                maxLength={150}
+                value={contacto}
+                onChange={(evento) => setContacto(evento.target.value)}
+                disabled={Boolean(sesion && ficha)}
+              />
+            </Campo>
+            {sesion && sinFicha ? (
+              <p className="bajada">La primera vez guardamos tu nombre y contacto junto con el reclamo.</p>
+            ) : null}
+
+            <Campo etiqueta="Contanos qué está pasando" hint="Escribilo como quieras: lo ordenamos nosotros.">
+              <textarea
+                required
+                maxLength={1000}
+                rows={5}
+                value={relato}
+                onChange={(evento) => setRelato(evento.target.value)}
+                placeholder="Hay un cable pelado colgando del poste de la esquina, a la altura de un auto…"
+              />
+            </Campo>
+            <Campo etiqueta="Foto" hint="Opcional. El asistente la usa para ver el daño y afinar el análisis.">
+              <input
+                ref={fotoInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(evento) => {
+                  const archivo = evento.target.files?.[0]
+                  if (!archivo) return
+                  void prepararFoto(archivo)
+                    .then((lista) => {
+                      setFoto((anterior) => {
+                        if (anterior) URL.revokeObjectURL(anterior.vista)
+                        return lista
+                      })
+                      setErrorAnalisis(null)
+                    })
+                    .catch((fallo: unknown) => {
+                      setErrorAnalisis(fallo instanceof Error ? fallo.message : 'No se pudo leer la foto.')
+                    })
+                }}
+              />
+            </Campo>
+            {foto ? (
+              <div className="foto-elegida">
+                <img src={foto.vista} alt="Vista previa de la foto" />
+                <div>
+                  <p className={relato.trim() ? 'foto-elegida-texto' : 'bajada'}>
+                    {relato.trim() || 'Contá arriba qué se ve en la foto.'}
+                  </p>
                   <button
                     type="button"
-                    className={`item-lista ${seguimiento?.id === reclamo.id ? 'activo' : ''}`}
-                    onClick={() => setSeguimiento(reclamo)}
+                    className="btn btn-texto"
+                    onClick={() => {
+                      URL.revokeObjectURL(foto.vista)
+                      setFoto(null)
+                      if (fotoInput.current) fotoInput.current.value = ''
+                    }}
                   >
-                    <PastillaEstado estado={reclamo.estado} texto={ESTADO_VECINO[reclamo.estado]} />
-                    {reclamo.tieneImagen ? <MiniFoto id={reclamo.id} /> : null}
-                    <span className="item-lista-titulo">{reclamo.titulo.trim() || reclamo.descripcion.trim()}</span>
-                    {reclamo.descripcion.trim() && reclamo.descripcion.trim() !== reclamo.titulo.trim() ? (
-                      <small>{reclamo.descripcion}</small>
-                    ) : null}
-                    <small>
-                      {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · {formatearFecha(reclamo.fechaCreacion)}
-                    </small>
+                    Quitar foto
                   </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
+                </div>
+              </div>
+            ) : null}
+            <Campo etiqueta="Dirección">
+              <input
+                required
+                maxLength={255}
+                value={direccion}
+                onChange={(evento) => setDireccion(evento.target.value)}
+                placeholder="Av. Santa Fe 3200"
+              />
+            </Campo>
+            <Campo etiqueta="Barrio" hint="Si no lo sabés, lo completamos con la dirección.">
+              <select value={barrio} onChange={(evento) => setBarrio(evento.target.value)}>
+                <option value="">No estoy seguro</option>
+                {BARRIOS.map((nombreBarrio) => (
+                  <option key={nombreBarrio} value={nombreBarrio}>
+                    {nombreBarrio}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            {avisoDireccion ? <Aviso tono="aviso">{avisoDireccion}</Aviso> : null}
+            {errorAnalisis ? <Aviso tono="error">{errorAnalisis}</Aviso> : null}
+            <button className="btn btn-primario" type="submit" disabled={analizando || cargandoFicha}>
+              {analizando ? 'Analizando tu reclamo…' : 'Analizar con el asistente'}
+            </button>
+            <button type="button" className="btn btn-texto" onClick={saltarAsistente} disabled={analizando}>
+              Prefiero completar el formulario a mano
+            </button>
+          </form>
+        ) : (
+          <form className="formulario" onSubmit={(evento) => void enviar(evento)}>
+            {avisoIa ? <Aviso tono={avisoIa.ok ? 'ok' : 'info'}>{avisoIa.mensaje}</Aviso> : null}
+            <div className="foto-elegida">
+              {foto ? <img src={foto.vista} alt="Vista previa de la foto" /> : null}
+              <p className="meta">
+                {direccion}
+                {barrio ? ` · ${barrio}` : ''}
+              </p>
+            </div>
 
-        <form className="tarjeta formulario" onSubmit={(evento) => void buscar(evento)}>
-          <h2>Buscar un reclamo</h2>
+            <Campo etiqueta="Problema">
+              <select value={tipo} onChange={(evento) => setTipo(evento.target.value as TipoReclamo)}>
+                {TIPOS.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.etiqueta}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo etiqueta="¿A quién afecta el problema?">
+              <select
+                required
+                value={alcance}
+                onChange={(evento) => setAlcance(evento.target.value as AlcanceReclamo | '')}
+              >
+                <option value="">Seleccioná una opción</option>
+                <option value="PERSONAL">Personal: solo me afecta a mí</option>
+                <option value="COLECTIVO">Colectivo: afecta a varias personas</option>
+              </select>
+            </Campo>
+            <Campo etiqueta="Título" hint="Un resumen corto.">
+              <input
+                required
+                maxLength={150}
+                value={titulo}
+                onChange={(evento) => setTitulo(evento.target.value)}
+                placeholder="Cable colgando sobre la vereda"
+              />
+            </Campo>
+            <Campo etiqueta="Qué está pasando">
+              <textarea
+                required
+                maxLength={1000}
+                rows={4}
+                value={descripcion}
+                onChange={(evento) => setDescripcion(evento.target.value)}
+                placeholder="Cable pelado colgando desde el poste, a metros de la esquina"
+              />
+            </Campo>
+            {error ? <Aviso tono="error">{error}</Aviso> : null}
+            <div className="hero-vecino__acciones">
+              <button
+                type="button"
+                className="btn btn-secundario"
+                onClick={() => setPasoForm('redactar')}
+                disabled={enviando}
+              >
+                Volver
+              </button>
+              <button className="btn btn-primario" type="submit" disabled={enviando}>
+                {enviando ? 'Enviando…' : 'Confirmar y enviar'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Panel>
+
+      <Panel abierto={seguimientoAbierto} onCerrar={() => setSeguimientoAbierto(false)} titulo="Seguimiento">
+        {seguimiento ? <DetalleVecino reclamo={seguimiento} /> : null}
+      </Panel>
+
+      <Panel abierto={buscarAbierto} onCerrar={() => setBuscarAbierto(false)} titulo="Buscar un reclamo">
+        <form className="formulario" onSubmit={(evento) => void buscar(evento)}>
           <p className="bajada">Si te pasaron un número de seguimiento, pegalo acá.</p>
           <Campo etiqueta="Número de seguimiento">
             <input
@@ -498,9 +700,59 @@ export function VistaVecino({ sesion, avisoAdmin }: { sesion: Sesion | null; avi
           <button className="btn btn-secundario" type="submit">
             Ver estado
           </button>
-          {consulta ? <DetalleVecino reclamo={consulta} /> : null}
         </form>
-      </div>
+        {consulta ? <DetalleVecino reclamo={consulta} /> : null}
+      </Panel>
+
+      <Panel abierto={perfilAbierto} onCerrar={onCerrarPerfil} titulo="Mi perfil">
+        <form className="formulario" onSubmit={(evento) => void guardarPerfil(evento)}>
+          <p className="bajada">
+            Estos son el nombre y el contacto que se usan para precargar tus reclamos.
+          </p>
+          <Campo etiqueta="Email de tu cuenta">
+            <input value={sesion?.email ?? ''} disabled readOnly />
+          </Campo>
+          <Campo etiqueta="Rol">
+            <input value="Vecino" disabled readOnly />
+          </Campo>
+          <Campo etiqueta="Nombre">
+            <input
+              required
+              maxLength={150}
+              value={perfilNombre}
+              onChange={(evento) => setPerfilNombre(evento.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Apellido" hint="Opcional.">
+            <input
+              maxLength={150}
+              value={perfilApellido}
+              onChange={(evento) => setPerfilApellido(evento.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Contacto" hint="Un mail o un teléfono para poder avisarte.">
+            <input
+              required
+              maxLength={150}
+              value={perfilContacto}
+              onChange={(evento) => setPerfilContacto(evento.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Dónde vivís" hint="Opcional. No es la dirección de un reclamo puntual.">
+            <input
+              maxLength={255}
+              value={perfilDireccion}
+              onChange={(evento) => setPerfilDireccion(evento.target.value)}
+              placeholder="Av. Santa Fe 3200"
+            />
+          </Campo>
+          {perfilError ? <Aviso tono="error">{perfilError}</Aviso> : null}
+          {perfilOk ? <Aviso tono="ok">Guardamos los cambios.</Aviso> : null}
+          <button className="btn btn-primario" type="submit" disabled={perfilGuardando}>
+            {perfilGuardando ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+        </form>
+      </Panel>
     </div>
   )
 }

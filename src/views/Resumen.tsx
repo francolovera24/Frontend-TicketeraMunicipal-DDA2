@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { esNoAutorizado, obtenerResumen, textoError, type ResumenZona } from '../api.ts'
 import { BARRIOS, ETIQUETA_TIPO, formatearFecha, TIPOS } from '../catalogo.ts'
-import { Aviso, Campo, PastillaEstado } from '../ui.tsx'
+import { Aviso, Campo, Encabezado, PastillaEstado } from '../ui.tsx'
 
 export function PanelResumen({
   token,
@@ -43,9 +43,8 @@ export function PanelResumen({
 
   return (
     <div className="columna">
+      <Encabezado titulo="Resumen de zona" descripcion="Un texto generado por IA de lo que está pasando, con los reclamos abiertos ordenados por prioridad." />
       <form className="tarjeta formulario" onSubmit={(evento) => void pedir(evento)}>
-        <h2>Resumen del barrio</h2>
-        <p className="bajada">Un texto corto de lo que está pasando, con los reclamos abiertos ordenados por prioridad.</p>
         <Campo etiqueta="Barrio">
           <select required value={barrio} onChange={(evento) => setBarrio(evento.target.value)}>
             {BARRIOS.map((nombre) => (

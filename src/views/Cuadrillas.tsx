@@ -9,7 +9,7 @@ import {
   type TipoReclamo,
 } from '../api.ts'
 import { ETIQUETA_TIPO, TIPOS } from '../catalogo.ts'
-import { Aviso, Campo } from '../ui.tsx'
+import { Aviso, Campo, Encabezado, Estadistica, Panel } from '../ui.tsx'
 import { DetalleReclamo } from './Reclamos.tsx'
 
 function textoEnlace(reclamo: Reclamo): string {
@@ -67,14 +67,20 @@ export function PanelCuadrillas({
   }, [cargar])
 
   const seleccionado = reclamos.find((item) => item.id === seleccionadoId) ?? null
+  const libres = cuadrillas.filter((item) => item.disponible).length
+  const ocupadas = cuadrillas.length - libres
 
   return (
     <div className="columna">
+      <Encabezado titulo="Equipos" descripcion="Cada reclamo toma un equipo libre de su problema." />
+
+      <div className="stats-fila">
+        <Estadistica etiqueta="Equipos" valor={cuadrillas.length} />
+        <Estadistica etiqueta="Libres" valor={libres} tono="ok" />
+        <Estadistica etiqueta="Ocupadas" valor={ocupadas} tono="aviso" />
+      </div>
+
       <section className="tarjeta">
-        <h2>Equipos</h2>
-        <p className="bajada">
-          Cada reclamo toma un equipo libre de su problema. Si está ocupado, abrí el mismo detalle que en Reclamos.
-        </p>
         <div className="fila-2">
           <Campo etiqueta="Problema">
             <select value={especialidad} onChange={(evento) => setEspecialidad(evento.target.value)}>
@@ -123,9 +129,9 @@ export function PanelCuadrillas({
                         type="button"
                         className="btn btn-texto enlace-reclamo"
                         aria-expanded={elegido}
-                        onClick={() => setSeleccionadoId(elegido ? null : reclamo.id)}
+                        onClick={() => setSeleccionadoId(reclamo.id)}
                       >
-                        {elegido ? 'Ocultar detalle' : textoEnlace(reclamo)}
+                        {textoEnlace(reclamo)}
                       </button>
                     ) : (
                       '—'
@@ -139,8 +145,8 @@ export function PanelCuadrillas({
         {cuadrillas.length === 0 ? <p className="bajada">No hay equipos con esos filtros.</p> : null}
       </section>
 
-      {seleccionado ? (
-        <section className="tarjeta">
+      <Panel abierto={seleccionado !== null} onCerrar={() => setSeleccionadoId(null)} titulo="Detalle del reclamo" ancho="l">
+        {seleccionado ? (
           <DetalleReclamo
             token={token}
             reclamo={seleccionado}
@@ -153,8 +159,8 @@ export function PanelCuadrillas({
             onVerCiudadano={onVerCiudadano}
             onVerSoap={onVerSoap}
           />
-        </section>
-      ) : null}
+        ) : null}
+      </Panel>
     </div>
   )
 }
