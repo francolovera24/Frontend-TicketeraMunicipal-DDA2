@@ -104,7 +104,7 @@ export function PanelResumen({
                 {resumen.ranking.map((item) => (
                   <tr
                     key={item.reclamoId}
-                    className="fila-clic"
+                    className={item.urgente ? 'fila-clic fila-urgente' : 'fila-clic'}
                     tabIndex={0}
                     onClick={() => onVerReclamo(item.reclamoId)}
                     onKeyDown={(evento) => {
@@ -117,9 +117,11 @@ export function PanelResumen({
                     <td>{item.score}</td>
                     <td>
                       <strong>{item.titulo}</strong>
-                      {item.urgente ? ' · urgente' : ''}
+                      {item.urgente ? <span className="pastilla urgente">Urgente</span> : null}
                       <br />
-                      {ETIQUETA_TIPO[item.tipo]} · {item.descripcion}
+                      <span className="resumen-detalle">
+                        {ETIQUETA_TIPO[item.tipo]} · {item.descripcion}
+                      </span>
                       <br />
                       <span className="meta">{item.direccion}</span>
                     </td>
