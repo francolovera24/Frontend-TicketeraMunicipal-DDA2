@@ -433,71 +433,73 @@ export function VistaVecino({
 
   return (
     <div className="columna">
-      <section className="tarjeta hero-vecino">
-        <h1>{nombre.trim() ? `Hola, ${nombre.trim().split(' ')[0]}` : 'Hola, vecino'}</h1>
-        <p className="bajada">
-          {avisoAdmin
-            ? 'Desde acá podés cargar un reclamo como lo haría un vecino.'
-            : 'Contanos qué está pasando y dónde. Después vas a poder seguir el estado desde acá.'}
-        </p>
-        {historial.length > 0 ? (
-          <div className="stats-fila">
-            <Estadistica etiqueta="Reclamos" valor={historial.length} />
-            <Estadistica etiqueta="En curso" valor={enCurso} tono="acento" />
-            <Estadistica etiqueta="Resueltos" valor={resueltos} tono="ok" />
+      <div className="grilla-2 grilla-2-vecino">
+        <section className="tarjeta hero-vecino">
+          <h1>{nombre.trim() ? `Hola, ${nombre.trim().split(' ')[0]}` : 'Hola, vecino'}</h1>
+          <p className="bajada">
+            {avisoAdmin
+              ? 'Desde acá podés cargar un reclamo como lo haría un vecino.'
+              : 'Contanos qué está pasando y dónde. Después vas a poder seguir el estado desde acá.'}
+          </p>
+          {historial.length > 0 ? (
+            <div className="stats-fila">
+              <Estadistica etiqueta="Reclamos" valor={historial.length} />
+              <Estadistica etiqueta="En curso" valor={enCurso} tono="acento" />
+              <Estadistica etiqueta="Resueltos" valor={resueltos} tono="ok" />
+            </div>
+          ) : null}
+          <div className="hero-vecino__acciones">
+            <button
+              className="btn btn-primario"
+              type="button"
+              onClick={() => {
+                setPasoForm('redactar')
+                setFormAbierto(true)
+              }}
+            >
+              <Icono nombre="nuevo" /> Reportar un problema
+            </button>
+            <button className="btn btn-secundario" type="button" onClick={() => setBuscarAbierto(true)}>
+              <Icono nombre="buscar" /> Tengo un número de seguimiento
+            </button>
           </div>
-        ) : null}
-        <div className="hero-vecino__acciones">
-          <button
-            className="btn btn-primario"
-            type="button"
-            onClick={() => {
-              setPasoForm('redactar')
-              setFormAbierto(true)
-            }}
-          >
-            <Icono nombre="nuevo" /> Reportar un problema
-          </button>
-          <button className="btn btn-secundario" type="button" onClick={() => setBuscarAbierto(true)}>
-            <Icono nombre="buscar" /> Tengo un número de seguimiento
-          </button>
-        </div>
-      </section>
+        </section>
 
-      <section className="tarjeta">
-        <Encabezado
-          titulo="Mis reclamos"
-          descripcion={historial.length > 0 ? 'Tocá uno para ver en qué está.' : undefined}
-        />
-        {historial.length === 0 ? (
-          <p className="bajada">Todavía no enviaste ninguno.</p>
-        ) : (
-          <ul className="lista-simple">
-            {historial.map((reclamo) => (
-              <li key={reclamo.id}>
-                <button
-                  type="button"
-                  className="item-lista"
-                  onClick={() => {
-                    setSeguimiento(reclamo)
-                    setSeguimientoAbierto(true)
-                  }}
-                >
-                  <PastillaEstado estado={reclamo.estado} texto={ESTADO_VECINO[reclamo.estado]} />
-                  {reclamo.tieneImagen ? <MiniFoto id={reclamo.id} /> : null}
-                  <span className="item-lista-titulo">{reclamo.titulo.trim() || reclamo.descripcion.trim()}</span>
-                  {reclamo.descripcion.trim() && reclamo.descripcion.trim() !== reclamo.titulo.trim() ? (
-                    <small>{reclamo.descripcion}</small>
-                  ) : null}
-                  <small>
-                    {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · {formatearFecha(reclamo.fechaCreacion)}
-                  </small>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        <section className="tarjeta">
+          <Encabezado
+            titulo="Mis reclamos"
+            descripcion={historial.length > 0 ? 'Tocá uno para ver en qué está.' : undefined}
+          />
+          {historial.length === 0 ? (
+            <p className="bajada">Todavía no enviaste ninguno.</p>
+          ) : (
+            <ul className="lista-simple">
+              {historial.map((reclamo) => (
+                <li key={reclamo.id}>
+                  <button
+                    type="button"
+                    className="item-lista"
+                    onClick={() => {
+                      setSeguimiento(reclamo)
+                      setSeguimientoAbierto(true)
+                    }}
+                  >
+                    <PastillaEstado estado={reclamo.estado} texto={ESTADO_VECINO[reclamo.estado]} />
+                    {reclamo.tieneImagen ? <MiniFoto id={reclamo.id} /> : null}
+                    <span className="item-lista-titulo">{reclamo.titulo.trim() || reclamo.descripcion.trim()}</span>
+                    {reclamo.descripcion.trim() && reclamo.descripcion.trim() !== reclamo.titulo.trim() ? (
+                      <small>{reclamo.descripcion}</small>
+                    ) : null}
+                    <small>
+                      {ETIQUETA_TIPO[reclamo.tipo]} · {reclamo.barrio} · {formatearFecha(reclamo.fechaCreacion)}
+                    </small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
 
       <Panel abierto={formAbierto} onCerrar={() => setFormAbierto(false)} titulo="Nuevo reclamo" ancho="l">
         {pasoForm === 'redactar' ? (
