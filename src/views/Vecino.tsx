@@ -304,6 +304,7 @@ export function VistaVecino({
         direccion: perfilDireccion.trim() || null,
       })
       setFicha(actualizado)
+      setSinFicha(false)
       setNombre(actualizado.nombre)
       setContacto(actualizado.contacto)
       setPerfilOk(true)
