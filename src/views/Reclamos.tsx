@@ -27,6 +27,15 @@ import { MapaReclamos } from './MapaReclamos.tsx'
 
 type Vista = 'tablero' | 'mapa' | 'lista'
 
+function urlGoogleMaps(reclamo: Reclamo): string {
+  const { lat, lon, direccion } = reclamo.ubicacion
+  const consulta =
+    lat != null && lon != null
+      ? `${lat},${lon}`
+      : `${direccion}, ${reclamo.barrio}, Ciudad Autónoma de Buenos Aires`
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(consulta)}`
+}
+
 const COLUMNAS_KANBAN: EstadoReclamo[] = [
   'NUEVO',
   'EN_ANALISIS',
@@ -497,6 +506,9 @@ export function DetalleReclamo({
           <p className="bajada">Ya había un reclamo igual. Se sigue ese y no se manda otro equipo.</p>
         ) : null}
         <div className="acciones">
+          <a className="btn btn-secundario" href={urlGoogleMaps(reclamo)} target="_blank" rel="noopener noreferrer">
+            Ver en Google Maps
+          </a>
           {onVerCiudadano ? (
             <button className="btn btn-secundario" type="button" onClick={() => onVerCiudadano(reclamo.ciudadanoId)}>
               Ver vecino

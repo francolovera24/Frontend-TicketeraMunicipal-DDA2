@@ -757,6 +757,7 @@ textarea { resize: vertical; }
   width: fit-content;
   font-weight: 650;
   font-size: 0.94rem;
+  text-decoration: none;
   transition: transform var(--transicion), box-shadow var(--transicion), background var(--transicion), opacity var(--transicion);
 }
 
@@ -1158,6 +1159,11 @@ textarea { resize: vertical; }
 .tabla th { color: var(--suave); font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.02em; }
 .tabla tr.fila-clic { cursor: pointer; transition: background var(--transicion); }
 .tabla tr.fila-clic:hover td { background: var(--acento-suave); }
+.tabla tr.fila-urgente td { background: color-mix(in srgb, var(--vecino) 10%, transparent); }
+.tabla tr.fila-urgente:hover td { background: color-mix(in srgb, var(--vecino) 18%, transparent); }
+.tabla tr.fila-urgente strong,
+.tabla tr.fila-urgente .resumen-detalle { color: var(--vecino-fuerte); font-weight: 750; }
+.tabla tr.fila-urgente .pastilla { margin-left: 8px; }
 .tabla tr.fila-clic:focus-visible { outline: 2px solid var(--acento); outline-offset: -2px; }
 
 .mapa { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 10px; }
