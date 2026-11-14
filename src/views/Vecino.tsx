@@ -617,13 +617,31 @@ export function VistaVecino({
         ) : (
           <form className="formulario" onSubmit={(evento) => void enviar(evento)}>
             {avisoIa ? <Aviso tono={avisoIa.ok ? 'ok' : 'info'}>{avisoIa.mensaje}</Aviso> : null}
-            <div className="foto-elegida">
-              {foto ? <img src={foto.vista} alt="Vista previa de la foto" /> : null}
-              <p className="meta">
-                {direccion}
-                {barrio ? ` · ${barrio}` : ''}
-              </p>
-            </div>
+            {foto ? (
+              <div className="foto-elegida">
+                <img src={foto.vista} alt="Vista previa de la foto" />
+              </div>
+            ) : null}
+            <Campo etiqueta="Dirección">
+              <input
+                required
+                maxLength={255}
+                value={direccion}
+                onChange={(evento) => setDireccion(evento.target.value)}
+                placeholder="Av. Santa Fe 3200"
+              />
+            </Campo>
+            <Campo etiqueta="Barrio" hint="Si no lo sabés, lo completamos con la dirección.">
+              <select value={barrio} onChange={(evento) => setBarrio(evento.target.value)}>
+                <option value="">No estoy seguro</option>
+                {BARRIOS.map((nombreBarrio) => (
+                  <option key={nombreBarrio} value={nombreBarrio}>
+                    {nombreBarrio}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            {avisoDireccion ? <Aviso tono="aviso">{avisoDireccion}</Aviso> : null}
 
             <Campo etiqueta="Problema">
               <select value={tipo} onChange={(evento) => setTipo(evento.target.value as TipoReclamo)}>
